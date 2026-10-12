@@ -1,6 +1,6 @@
 # MotionWall
 
-Biblioteca e prévia de animações para Ubuntu/GNOME, feita com Python,
+Aplicativo de wallpapers animados para Ubuntu/GNOME, feito com Python,
 GTK4/Libadwaita e WebKitGTK. Versão **0.2.0**, com integração GNOME experimental.
 
 Importe uma animação, veja a prévia e clique em **Aplicar como fundo**. No
@@ -54,9 +54,10 @@ Para voltar ao fundo normal, clique em **Restaurar fundo**. A janela do
 catálogo também oferece a instalação da integração se ela estiver ausente.
 
 A extensão declara GNOME 46–50 e trata a mudança de API do Mutter 50.
-A validação automática usa uma sessão GNOME 46/Wayland isolada no Ubuntu 24.04;
-Ubuntu 26.04/GNOME 50 ainda requer validação no ambiente alvo. É uma versão
-experimental. O fundo é aplicado a todos os monitores e não altera os caminhos
+A validação automática passou em sessões isoladas de GNOME 46/Wayland no
+Ubuntu 24.04 e GNOME 50.1/Wayland no Ubuntu 26.04, com renderização por software.
+É uma versão experimental; a validação em hardware e com outras extensões
+depende do ambiente. O fundo é aplicado a todos os monitores e não altera os caminhos
 do wallpaper estático. Ao bloquear a sessão ou desabilitar a extensão, o player
 é encerrado; reaplique após desbloquear. Não há inicialização automática no login.
 
@@ -80,8 +81,9 @@ do wallpaper estático. Ao bloquear a sessão ou desabilitar a extensão, o play
 
 Importar um arquivo não garante que todos os efeitos dele sejam compatíveis com
 o renderer. Erros de reprodução aparecem na janela. O catálogo e o servidor
-local possuem testes automatizados; a validação final no Ubuntu 26.04 com
-GNOME 50/Wayland ainda precisa ocorrer.
+local possuem testes automatizados. Aplicação, avanço da animação e restauração
+passaram no teste isolado de GNOME Wayland para GIF, SVG e Lottie. Codecs de vídeo
+e múltiplos monitores físicos ainda não foram validados.
 
 ## Dados e desenvolvimento
 
@@ -111,7 +113,8 @@ xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/desktop_smoke.py
 Ele instala a extensão em uma pasta temporária, abre outra sessão GNOME com
 suas próprias configurações e barramento, aplica GIF/SVG/Lottie, verifica avanço
 da animação e restauração e desabilita a extensão. Não altera sua sessão principal.
-O CI salva screenshot e logs no artefato `motionwall-desktop-test`.
+O CI salva screenshot e logs nos artefatos `motionwall-desktop-test-ubuntu-24.04`
+e `motionwall-desktop-test-ubuntu-26.04`.
 
 ## Arquitetura e próximas etapas
 
@@ -127,7 +130,7 @@ a esse cliente e clona suas superfícies nos atores de background. GIF/Lottie/SV
 e vídeo continuam sendo reproduzidos no processo WebKit. O compositor não executa
 o motor de animação. A restauração remove os clones, os handlers e o processo.
 
-Próximas etapas: validação no GNOME 50, pausa por tela cheia e energia, controles
+Próximas etapas: validação em hardware, pausa por tela cheia e energia, controles
 independentes por monitor, inicialização no login e empacotamento.
 
 ## Licenças
