@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "motionwall"
+version = "0.2.5"
+description = "Local animated wallpaper library and preview for GNOME"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Wiliam De Schepper"}]
+
+[project.scripts]
+motionwall = "motionwall.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["motionwall*"]
+
+[tool.setuptools.package-data]
+motionwall = ["web/*.html", "web/*.css", "web/*.js", "web/vendor/*", "examples/*"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

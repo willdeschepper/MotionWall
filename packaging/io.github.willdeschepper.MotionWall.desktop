@@ -1,0 +1,18 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=MotionWall
+GenericName=Animated Wallpapers
+GenericName[pt_BR]=Wallpapers animados
+Comment=Animated wallpapers with SVG, Lottie, GIF and video
+Comment[pt_BR]=Wallpapers animados com SVG, Lottie, GIF e vídeo
+Exec=/usr/bin/motionwall
+TryExec=/usr/bin/motionwall
+Icon=io.github.willdeschepper.MotionWall
+Terminal=false
+Categories=Utility;Graphics;
+Keywords=wallpaper;animation;desktop;background;lottie;
+Keywords[pt_BR]=wallpaper;animação;fundo;tela;lottie;
+StartupNotify=true
+StartupWMClass=io.github.willdeschepper.MotionWall
+DBusActivatable=false

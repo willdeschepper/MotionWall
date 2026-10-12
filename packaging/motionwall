@@ -1,0 +1,8 @@
+#!/usr/bin/python3
+"""System launcher; independent of the source checkout and working directory."""
+import sys
+
+sys.path.insert(0, "/opt/motionwall")
+from motionwall.__main__ import main
+
+raise SystemExit(main())

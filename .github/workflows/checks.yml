@@ -1,0 +1,104 @@
+name: Checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Catalogue and transport
+        run: /usr/bin/python3 -m unittest discover -s tests -v
+      - name: Vector frame budget at high display refresh rates
+        run: node tests/vector_clock.mjs
+      - name: Install native runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi python3-pil gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 xvfb dbus-x11 gnome-shell gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+      - name: Allow WebKit sandbox namespaces in this disposable runner
+        run: |
+          # Ubuntu 24.04 restricts user namespaces for unprofiled binaries.
+          # Permit bubblewrap specifically, keeping WebKit's sandbox enabled.
+          # A second profile for the same executable is ambiguous on newer Ubuntu.
+          # Replace only the runner's bubblewrap profile, not the global policy.
+          if [ -f /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict
+          fi
+          sudo tee /etc/apparmor.d/motionwall-ci-bwrap >/dev/null <<'PROFILE'
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile motionwall-ci-bwrap /usr/bin/bwrap flags=(default_allow) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser -r /etc/apparmor.d/motionwall-ci-bwrap
+          sudo sh -c 'cat /sys/kernel/security/apparmor/profiles' | rg 'bwrap|python' || true
+      - name: Build and install Debian package
+        run: |
+          /usr/bin/python3 tools/build_deb.py
+          sudo apt-get install -y ./dist/motionwall_0.2.5_all.deb
+          desktop-file-validate /usr/share/applications/io.github.willdeschepper.MotionWall.desktop
+      - name: Installed desktop launcher without source checkout
+        env:
+          GTK_A11Y: none
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/installed_smoke.py
+      - name: GTK and WebKit playback
+        env:
+          GTK_A11Y: none
+          MOTIONWALL_TEST_INSTALLED: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          cd /tmp
+          xvfb-run -a dbus-run-session -- /usr/bin/motionwall --smoke-test
+      - name: Original dimensions on HiDPI
+        env:
+          GTK_A11Y: none
+          GDK_SCALE: '2'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          cd /tmp
+          xvfb-run -a dbus-run-session -- /usr/bin/motionwall --smoke-test
+      - name: Aurora CPU comparison at ultrawide resolution
+        env:
+          GTK_A11Y: none
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          git show a842a549aea7ec900c64b90ee48162b1d77ca89f:motionwall/web/player.js > /tmp/motionwall-original-player.js
+          xvfb-run -a -s '-screen 0 3840x1080x24' dbus-run-session -- /usr/bin/python3 tests/playback_benchmark.py --baseline-player /tmp/motionwall-original-player.js
+      - name: GNOME Wayland wallpaper and restore
+        env:
+          GTK_A11Y: none
+          MOTIONWALL_TEST_INSTALLED: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/desktop_smoke.py
+      - name: Desktop screenshot and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: motionwall-desktop-test-${{ matrix.os }}
+          path: smoke-output/
+      - name: Installable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: motionwall-deb-${{ matrix.os }}
+          path: dist/motionwall_0.2.5_all.deb

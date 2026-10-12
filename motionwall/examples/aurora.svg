@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 540">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop stop-color="#081328"/><stop offset="1" stop-color="#192941"/>
+    </linearGradient>
+    <linearGradient id="ribbon">
+      <stop stop-color="#53e5bb" stop-opacity="0"/>
+      <stop offset=".35" stop-color="#53e5bb" stop-opacity=".7"/>
+      <stop offset=".7" stop-color="#9194ff" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#9194ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="16"/></filter>
+  </defs>
+  <rect width="1920" height="540" fill="url(#sky)"/>
+  <g fill="#e8f5ff" opacity=".65">
+    <circle cx="128" cy="100" r="2"/><circle cx="520" cy="52" r="1.5"/>
+    <circle cx="1120" cy="88" r="2"/><circle cx="1540" cy="44" r="1.5"/>
+    <circle cx="1820" cy="120" r="2"/><circle cx="870" cy="134" r="1.5"/>
+  </g>
+  <g filter="url(#blur)">
+    <path fill="url(#ribbon)" d="M0 140 Q400 280 820 120 T1920 180 L1920 320 Q1400 260 900 290 T0 230Z">
+      <animateTransform attributeName="transform" type="translate" values="0 0;0 65;0 0" dur="9s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values=".65;1;.65" dur="6s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  <path fill="#070f1c" d="M0 490 L180 425 400 478 570 391 800 470 1080 406 1300 464 1530 377 1760 460 1920 412 V540 H0Z"/>
+</svg>

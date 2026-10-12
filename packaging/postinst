@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    update-desktop-database -q /usr/share/applications
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor
+    elif command -v gtk4-update-icon-cache >/dev/null 2>&1; then
+        gtk4-update-icon-cache -q -t -f /usr/share/icons/hicolor
+    fi
+fi
+exit 0
