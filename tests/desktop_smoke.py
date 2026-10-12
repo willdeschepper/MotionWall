@@ -109,7 +109,8 @@ def main():
                 evaluate(f"({fixture_window}).change_workspace_by_index(0, false); ({fixture_window}).activate(global.get_current_time()); true")
                 evaluate("new Gio.Settings({schema_id: 'org.gnome.desktop.wm.keybindings'}).set_strv('switch-to-workspace-right', ['<Super>Page_Down']); true")
                 evaluate("(async () => { const {default: Clutter} = await import('gi://Clutter'); "
-                         "global._motionwallTestKeyboard = global.backend.get_default_seat().create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE); return true; })()")
+                         "const backend = typeof Clutter.get_default_backend === 'function' ? Clutter.get_default_backend() : global.stage.context.get_backend(); "
+                         "global._motionwallTestKeyboard = backend.get_default_seat().create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE); return true; })()")
                 def next_workspace():
                     evaluate("(async () => { const {default: Clutter} = await import('gi://Clutter'); "
                              "const k = global._motionwallTestKeyboard; const t = GLib.get_monotonic_time(); "
