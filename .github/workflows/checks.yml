@@ -13,9 +13,22 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 xvfb dbus-x11
+      - name: Allow WebKit sandbox namespaces in this disposable runner
+        run: |
+          # Ubuntu 24.04 restricts user namespaces for unprofiled binaries.
+          # Permit bubblewrap specifically, keeping WebKit's sandbox enabled.
+          sudo tee /etc/apparmor.d/motionwall-ci-bwrap >/dev/null <<'PROFILE'
+          abi <abi/4.0>,
+          include <tunables/global>
+          profile motionwall-ci-bwrap /usr/bin/bwrap flags=(unconfined) {
+            userns,
+          }
+          PROFILE
+          sudo apparmor_parser -r /etc/apparmor.d/motionwall-ci-bwrap
       - name: GTK and WebKit playback
         env:
+          GTK_A11Y: none
           LIBGL_ALWAYS_SOFTWARE: '1'
           GSK_RENDERER: cairo
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'
-        run: dbus-run-session -- xvfb-run -a ./dev.sh --smoke-test
+        run: xvfb-run -a dbus-run-session -- ./dev.sh --smoke-test
