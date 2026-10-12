@@ -83,6 +83,7 @@ def main():
         output.mkdir(exist_ok=True)
         with (output / "desktop-shell.log").open("w") as log:
             shell = subprocess.Popen(["gnome-shell", *mode, "--unsafe-mode"], stdout=log, stderr=subprocess.STDOUT)
+            fixture = None
             try:
                 wait_for(lambda: evaluate("Main.layoutManager.monitors.length") > 0, "GNOME monitors")
                 # Extension installation happened before this Shell started.
@@ -93,6 +94,29 @@ def main():
                 bridge = DesktopBridge()
                 # Avoid startup overview when testing the actual desktop background.
                 evaluate("Main.overview.hide(); true")
+                evaluate("new Gio.Settings({schema_id: 'org.gnome.mutter'}).set_boolean('dynamic-workspaces', false); "
+                         "new Gio.Settings({schema_id: 'org.gnome.desktop.wm.preferences'}).set_int('num-workspaces', 3); true")
+                wait_for(lambda: evaluate("global.workspace_manager.n_workspaces") >= 3, "three workspaces")
+                socket = wait_for(lambda: next((p for p in (temporary / 'runtime').glob('wayland-*')
+                                               if not p.name.endswith('.lock')), None), "Wayland socket")
+                fixture_env = os.environ.copy()
+                fixture_env["WAYLAND_DISPLAY"] = socket.name
+                fixture = subprocess.Popen(["/usr/bin/python3", str(ROOT / "tests/workspace_window.py")],
+                                           env=fixture_env, stdout=log, stderr=subprocess.STDOUT)
+                fixture_window = "global.get_window_actors().find(a => a.meta_window.get_title() === 'MotionWall Workspace Test')?.meta_window"
+                wait_for(lambda: evaluate(f"Boolean({fixture_window})"), "ordinary window")
+                evaluate("global.workspace_manager.get_workspace_by_index(0).activate(global.get_current_time()); true")
+                evaluate(f"({fixture_window}).change_workspace_by_index(0, false); ({fixture_window}).activate(global.get_current_time()); true")
+                evaluate("new Gio.Settings({schema_id: 'org.gnome.desktop.wm.keybindings'}).set_strv('switch-to-workspace-right', ['<Super>Page_Down']); true")
+                evaluate("(async () => { const {default: Clutter} = await import('gi://Clutter'); "
+                         "global._motionwallTestKeyboard = global.backend.get_default_seat().create_virtual_device(Clutter.InputDeviceType.KEYBOARD_DEVICE); return true; })()")
+                def next_workspace():
+                    evaluate("(async () => { const {default: Clutter} = await import('gi://Clutter'); "
+                             "const k = global._motionwallTestKeyboard; const t = GLib.get_monotonic_time(); "
+                             "k.notify_keyval(t, Clutter.KEY_Super_L, Clutter.KeyState.PRESSED); "
+                             "k.notify_keyval(t + 1, Clutter.KEY_Page_Down, Clutter.KeyState.PRESSED); "
+                             "k.notify_keyval(t + 2, Clutter.KEY_Page_Down, Clutter.KeyState.RELEASED); "
+                             "k.notify_keyval(t + 3, Clutter.KEY_Super_L, Clutter.KeyState.RELEASED); return true; })()")
                 library = Library(temporary / "catalogue")
                 for filename in ("aurora.svg", "orbit.json", "pulse.gif"):
                     artwork, _ = library.import_file(ROOT / "motionwall/examples" / filename)
@@ -114,6 +138,32 @@ def main():
                     tabs = evaluate("global.display.get_tab_list(Meta.TabList.NORMAL_ALL, null).map(w => w.get_title())")
                     assert not any(title.startswith("MotionWallRenderer:") for title in tabs), tabs
                     if filename == "aurora.svg":
+                        # Switching to an empty workspace must not reactivate the
+                        # fixture on workspace 0 through the hidden renderer.
+                        next_workspace()
+                        time.sleep(.8)
+                        assert evaluate("global.workspace_manager.get_active_workspace_index()") == 1, "Workspace jumped back"
+                        evaluate("Main.overview.show(); true")
+                        time.sleep(1)
+                        thumbnails = evaluate("(() => { const box = Main.overview._overview._controls._thumbnailsBox; "
+                                              "return {visible: box.visible, width: box.width, height: box.height, count: box._thumbnails.length}; })()")
+                        assert thumbnails["visible"] and thumbnails["count"] >= 3 and thumbnails["height"] > 0, thumbnails
+                        assert thumbnails["width"] < 1280, thumbnails
+                        next_workspace()
+                        time.sleep(.8)
+                        assert evaluate("global.workspace_manager.get_active_workspace_index()") == 2, "Overview workspace jumped back"
+                        evaluate(f"({fixture_window}).change_workspace_by_index(2, false); true")
+                        assert evaluate(f"({fixture_window}).get_workspace().index()") == 2, "Window did not move"
+                        evaluate("Main.overview.hide(); true")
+                        time.sleep(.5)
+                        assert evaluate("global.workspace_manager.get_active_workspace_index()") == 2, "Closing overview changed workspace"
+                        # Full-size wallpaper layers belong only to the desktop.
+                        evaluate("Main.overview.show(); true")
+                        time.sleep(.6)
+                        screenshot_path = str(output / "overview.png")
+                        call("org.gnome.Shell.Screenshot", "Screenshot", GLib.Variant("(bbs)",
+                             (False, False, screenshot_path)), "/org/gnome/Shell/Screenshot")
+                        print("WORKSPACE PASS: switch, overview thumbnails, move window and return", flush=True)
                         evaluate("Main.overview.hide(); true")
                         time.sleep(.5)
                         call("org.gnome.Shell.Screenshot", "Screenshot", GLib.Variant("(bbs)",
@@ -131,6 +181,13 @@ def main():
                 print((output / "desktop-shell.log").read_text(), file=sys.stderr, flush=True)
                 raise
             finally:
+                if fixture:
+                    fixture.terminate()
+                    try:
+                        fixture.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        fixture.kill()
+                        fixture.wait()
                 shell.terminate()
                 try:
                     shell.wait(timeout=10)

@@ -34,8 +34,8 @@ export default class MotionWallDesktop extends Extension {
                 return;
             if (!this._owns(focused)) {
                 if (focused) this._previousFocus = focused;
-            } else if (this._previousFocus?.get_compositor_private()) {
-                this._previousFocus.activate(global.get_current_time());
+            } else {
+                this._returnFocus();
             }
         });
         this._connect(Main.sessionMode, 'updated', () => {
@@ -69,6 +69,17 @@ export default class MotionWallDesktop extends Extension {
 
     _owns(window) {
         return Boolean(this._client && window && this._client.owns_window(window));
+    }
+
+    _returnFocus() {
+        const previous = this._previousFocus;
+        // activate() can switch workspaces and dismiss desktop/overview states.
+        // Focus only a live window on the workspace the user has chosen.
+        if (!previous?.get_compositor_private() || Main.overview.visible)
+            return;
+        const current = global.workspace_manager.get_active_workspace();
+        if (previous.is_on_all_workspaces() || previous.get_workspace() === current)
+            previous.focus(global.get_current_time());
     }
 
     Status() {
@@ -211,14 +222,16 @@ export default class MotionWallDesktop extends Extension {
             if (layer.index === index) this._clone(layer);
         }
         actor.hide();
-        if (this._owns(global.display.focus_window) && this._previousFocus?.get_compositor_private())
-            this._previousFocus.activate(global.get_current_time());
+        if (this._owns(global.display.focus_window))
+            this._returnFocus();
     }
 
     _attach(background, manager) {
         if (!background || this._layers.has(background) || !this._process)
             return;
-        if (manager._container?.style_class?.includes('screen-shield'))
+        // Overview and workspace thumbnails have their own allocation rules.
+        // A full-size renderer clone must never affect those actors' size hints.
+        if (!(Main.layoutManager._bgManagers ?? []).includes(manager))
             return;
         const index = background.monitor;
         if (!Main.layoutManager.monitors[index])
