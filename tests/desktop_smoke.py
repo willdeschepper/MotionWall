@@ -69,7 +69,8 @@ def main():
             try:
                 wait_for(lambda: evaluate("Main.layoutManager.monitors.length") > 0, "GNOME monitors")
                 # Extension installation happened before this Shell started.
-                enabled = call("org.gnome.Shell.Extensions", "EnableExtension", GLib.Variant("(s)", (UUID,)), "/org/gnome/Shell/Extensions")
+                wait_for(lambda: UUID in call("org.gnome.Shell.Extensions", "ListExtensions", path="/org/gnome/Shell")[0], "extension discovery")
+                enabled = call("org.gnome.Shell.Extensions", "EnableExtension", GLib.Variant("(s)", (UUID,)), "/org/gnome/Shell")
                 assert enabled[0], "Extension did not enable"
                 wait_for(lambda: desktop("Status"), "MotionWall bridge")
                 # Avoid startup overview when testing the actual desktop background.
@@ -106,8 +107,12 @@ def main():
                              "renderer removed")
                     print(f"DESKTOP PASS: {filename} animates behind windows and restores original", flush=True)
                 # Disable cleans exported interface and all hooks after use.
-                call("org.gnome.Shell.Extensions", "DisableExtension", GLib.Variant("(s)", (UUID,)), "/org/gnome/Shell/Extensions")
+                call("org.gnome.Shell.Extensions", "DisableExtension", GLib.Variant("(s)", (UUID,)), "/org/gnome/Shell")
                 print("DESKTOP PASS: extension disabled cleanly", flush=True)
+            except Exception:
+                log.flush()
+                print((output / "desktop-shell.log").read_text(), file=sys.stderr, flush=True)
+                raise
             finally:
                 shell.terminate()
                 try:
