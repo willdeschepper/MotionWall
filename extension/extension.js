@@ -103,7 +103,9 @@ export default class MotionWallDesktop extends Extension {
         const values = JSON.parse(optionsJSON);
         const options = {fit: ['contain', 'cover', 'stretch', 'native'].includes(values.fit) ? values.fit : 'cover',
             speed: Number.isFinite(values.speed) && values.speed >= 0.25 && values.speed <= 3 ? values.speed : 1,
-            loop: values.loop !== false};
+            loop: values.loop !== false,
+            fps: [15, 30, 60].includes(values.fps) ? values.fps : 30,
+            transparent: values.transparent !== false};
         this.Stop();
         this._request = {root, data, id, options};
         this._start();

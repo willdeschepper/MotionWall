@@ -133,9 +133,10 @@ remove retângulos, imagens ou cores desenhados dentro da própria animação.
 A Aurora SVG e a Aurora MP4 incluem o céu e as montanhas, portanto são opacas.
 Transparência em codecs de vídeo depende do decoder; H.264/MP4 comum não a fornece.
 
-Esta atualização muda o aplicativo e o renderer, sem mudar a extensão GNOME:
-restaure o fundo, feche o catálogo, execute `git pull --ff-only`, abra `./dev.sh`
-e reaplique. Não precisa reinstalar a extensão nem sair da sessão para 0.2.3.
+Esta atualização também muda a ponte GNOME para repassar fluidez e transparência.
+Desative a extensão, feche o catálogo, execute `git pull --ff-only` e
+`./dev.sh --install-extension`. Saia e entre na sessão, ative a extensão e
+reaplique. O módulo JavaScript do GNOME precisa ser recarregado.
 
 ## Recursos desta versão
 

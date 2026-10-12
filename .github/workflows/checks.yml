@@ -57,13 +57,6 @@ jobs:
           GSK_RENDERER: cairo
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'
         run: xvfb-run -a dbus-run-session -- ./dev.sh --smoke-test
-      - name: GNOME Wayland wallpaper and restore
-        env:
-          GTK_A11Y: none
-          LIBGL_ALWAYS_SOFTWARE: '1'
-          GSK_RENDERER: cairo
-          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
-        run: xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/desktop_smoke.py
       - name: Aurora CPU comparison at ultrawide resolution
         env:
           GTK_A11Y: none
@@ -73,6 +66,13 @@ jobs:
         run: |
           git show a842a549aea7ec900c64b90ee48162b1d77ca89f:motionwall/web/player.js > /tmp/motionwall-original-player.js
           xvfb-run -a -s '-screen 0 3840x1080x24' dbus-run-session -- /usr/bin/python3 tests/playback_benchmark.py --baseline-player /tmp/motionwall-original-player.js
+      - name: GNOME Wayland wallpaper and restore
+        env:
+          GTK_A11Y: none
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/desktop_smoke.py
       - name: Desktop screenshot and logs
         if: always()
         uses: actions/upload-artifact@v4
