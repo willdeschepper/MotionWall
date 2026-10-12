@@ -89,7 +89,7 @@ export default class MotionWallDesktop extends Extension {
         return JSON.stringify({state: this._state, error: this._error,
             artwork: this._request?.id ?? null, surfaces: this._surfaces.size,
             layers: [...this._layers.values()].filter(layer => layer.clone).length,
-            progress: this._progress ?? {}, geometry: this._geometry ?? {}});
+            progress: this._progress ?? {}, geometry: this._geometry ?? {}, renderSize: this._monitors ?? []});
     }
 
     Apply(root, data, id, optionsJSON) {
@@ -105,7 +105,8 @@ export default class MotionWallDesktop extends Extension {
             speed: Number.isFinite(values.speed) && values.speed >= 0.25 && values.speed <= 3 ? values.speed : 1,
             loop: values.loop !== false,
             fps: [15, 30, 60].includes(values.fps) ? values.fps : 30,
-            transparent: values.transparent !== false};
+            transparent: values.transparent !== false,
+            quality: values.quality === 'native' ? 'native' : 'balanced'};
         this.Stop();
         this._request = {root, data, id, options};
         this._start();
@@ -113,10 +114,18 @@ export default class MotionWallDesktop extends Extension {
     }
 
     _start() {
-        const monitors = Main.layoutManager.monitors.map(({width, height}) => ({width, height}));
+        const {root, data, id, options} = this._request;
+        const monitors = Main.layoutManager.monitors.map(({width, height}, index) => {
+            // Rasterize a bounded surface, then let the background clone scale it.
+            // Original pixel dimensions must retain the full-resolution surface.
+            const scale = global.display.get_monitor_scale(index);
+            const ratio = options.quality === 'native' || options.fit === 'native' ? 1
+                : Math.min(1, 1920 / (width * scale), 1080 / (height * scale));
+            return {width: Math.max(1, Math.round(width * ratio)),
+                height: Math.max(1, Math.round(height * ratio))};
+        });
         if (!monitors.length || Main.sessionMode.isLocked)
             throw new Error('Nenhum monitor disponível para aplicar o fundo.');
-        const {root, data, id, options} = this._request;
         this._generation++;
         const generation = this._generation;
         this._state = 'starting';
@@ -207,7 +216,8 @@ export default class MotionWallDesktop extends Extension {
         const monitor = Main.layoutManager.monitors[index];
         if (!monitor || this._surfaces.has(index))
             return;
-        window.move_resize_frame(false, monitor.x, monitor.y, monitor.width, monitor.height);
+        const size = this._monitors[index];
+        window.move_resize_frame(false, monitor.x, monitor.y, size.width, size.height);
         window.stick();
         window.lower();
         if (typeof this._client.hide_from_window_list === 'function')

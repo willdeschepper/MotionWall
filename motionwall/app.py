@@ -158,6 +158,14 @@ class MotionWallWindow(Adw.ApplicationWindow):
         self.transparent.connect("notify::active", self._options_changed)
         rendering.append(self.transparent)
         content.append(rendering)
+        quality = Gtk.Box(spacing=12)
+        quality.append(Gtk.Label(label="Qualidade do fundo"))
+        self.quality = Gtk.DropDown.new_from_strings(["Equilibrada · até 1920×1080", "Máxima · resolução da tela"])
+        self.quality.set_selected(["balanced", "native"].index(self.library.settings["quality"]))
+        self.quality.set_tooltip_text("Equilibrada reduz o trabalho de renderização e amplia para preencher a tela. Tamanho original · 100% sempre preserva a resolução completa.")
+        self.quality.connect("notify::selected", self._options_changed)
+        quality.append(self.quality)
+        content.append(quality)
         desktop_bar = Gtk.Box(spacing=12)
         self.desktop_label = Gtk.Label(label="Verificando integração com o GNOME…", xalign=0,
                                        hexpand=True, wrap=True)
@@ -304,7 +312,8 @@ class MotionWallWindow(Adw.ApplicationWindow):
     def options(self):
         return {"fit": ["contain", "cover", "stretch", "native"][self.fit.get_selected()],
                 "speed": self.speed.get_value(), "loop": self.loop.get_active(),
-                "fps": [15, 30, 60][self.fps.get_selected()], "transparent": self.transparent.get_active()}
+                "fps": [15, 30, 60][self.fps.get_selected()], "transparent": self.transparent.get_active(),
+                "quality": ["balanced", "native"][self.quality.get_selected()]}
 
     def _options_changed(self, *_args):
         if self._building:

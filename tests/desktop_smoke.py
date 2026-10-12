@@ -78,7 +78,7 @@ def main():
 
         help_text = subprocess.run(["gnome-shell", "--help"], capture_output=True, text=True, check=True).stdout
         print(subprocess.run(["gnome-shell", "--version"], capture_output=True, text=True, check=True).stdout.strip(), flush=True)
-        mode = ["--nested", "--wayland"] if "--nested" in help_text else ["--headless", "--wayland", "--virtual-monitor=1280x720"]
+        mode = ["--nested", "--wayland"] if "--nested" in help_text else ["--headless", "--wayland", "--virtual-monitor=3840x1080"]
         output = ROOT / "smoke-output"
         output.mkdir(exist_ok=True)
         with (output / "desktop-shell.log").open("w") as log:
@@ -86,6 +86,7 @@ def main():
             fixture = None
             try:
                 wait_for(lambda: evaluate("Main.layoutManager.monitors.length") > 0, "GNOME monitors")
+                monitor_width = evaluate("Main.layoutManager.monitors[0].width")
                 # Extension installation happened before this Shell started.
                 wait_for(lambda: UUID in call("org.gnome.Shell.Extensions", "ListExtensions", path="/org/gnome/Shell")[0], "extension discovery")
                 enabled = call("org.gnome.Shell.Extensions", "EnableExtension", GLib.Variant("(s)", (UUID,)), "/org/gnome/Shell")
@@ -141,6 +142,8 @@ def main():
                         assert abs(size["centerX"] - size["viewportCenterX"]) < .1, size
                         assert abs(size["centerY"] - size["viewportCenterY"]) < .1, size
                     print(f"ORIGINAL DESKTOP PASS: {filename} preserves original size and center", flush=True)
+                    renderer_width = evaluate("global.get_window_actors().find(a => a.meta_window.get_title() === 'MotionWallRenderer:0').meta_window.get_frame_rect().width")
+                    assert renderer_width == monitor_width, "100% lost full-resolution surface"
                     # Original renderer is hidden; the background holds a visible clone.
                     hidden = evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).every(a => !a.visible)")
                     assert hidden, "Renderer was visible as an ordinary window"
@@ -157,7 +160,7 @@ def main():
                         thumbnails = evaluate("(() => { const box = Main.overview._overview._controls._thumbnailsBox; "
                                               "return {visible: box.visible, width: box.width, height: box.height, count: box._thumbnails.length}; })()")
                         assert thumbnails["visible"] and thumbnails["count"] >= 3 and thumbnails["height"] > 0, thumbnails
-                        assert thumbnails["width"] < 1280, thumbnails
+                        assert thumbnails["width"] < monitor_width, thumbnails
                         next_workspace()
                         time.sleep(.8)
                         assert evaluate("global.workspace_manager.get_active_workspace_index()") == 2, "Overview workspace jumped back"
@@ -182,6 +185,21 @@ def main():
                     wait_for(lambda: evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).length") == 0,
                              "renderer removed")
                     print(f"DESKTOP PASS: {filename} animates behind windows and restores original", flush=True)
+                light, _ = library.import_file(ROOT / "motionwall/examples/aurora-leve.svg")
+                asynchronous(lambda done: bridge.apply(library, light.id,
+                    {"fit": "cover", "speed": 1, "loop": True, "quality": "balanced", "fps": 30}, done))
+                status = wait_for(active, "balanced-resolution wallpaper")
+                size = status["renderSize"][0]
+                renderer_width = evaluate("global.get_window_actors().find(a => a.meta_window.get_title() === 'MotionWallRenderer:0').meta_window.get_frame_rect().width")
+                assert renderer_width == size["width"] and renderer_width <= 1920, (renderer_width, size)
+                if monitor_width == 3840:
+                    assert size == {"width": 1920, "height": 540}, size
+                call("org.gnome.Shell.Screenshot", "Screenshot", GLib.Variant("(bbs)",
+                     (False, False, str(output / "quality-balanced.png"))), "/org/gnome/Shell/Screenshot")
+                asynchronous(bridge.stop)
+                wait_for(lambda: evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).length") == 0,
+                         "balanced renderer removed")
+                print(f"QUALITY DESKTOP PASS: {size} renderer fills {monitor_width}px monitor; 100% preserves full resolution", flush=True)
                 # Verify actual compositor pixels, not just a transparent CSS property.
                 from PIL import Image
                 evaluate("(() => { const s = new Gio.Settings({schema_id: 'org.gnome.desktop.background'}); "

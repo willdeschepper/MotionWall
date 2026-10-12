@@ -103,6 +103,13 @@ SVG e Lottie usam um limite de **30 fps** por padrão, independente de telas de
 continuam iguais; o limite reduz a frequência de pintura. O controle vale para
 SVG (CSS e SMIL) e Lottie; GIF e vídeo seguem os quadros do arquivo.
 
+Em **Qualidade do fundo**, o padrão **Equilibrada** limita a superfície renderizada
+a 1920×1080 pixels físicos. No monitor 3840×1080 ela usa 1920×540, ampliada pelo
+compositor para preencher a tela. Isso reduz a área de rasterização em quatro
+vezes, com possível perda de nitidez em detalhes pequenos. **Máxima** usa a
+resolução da tela. **Tamanho original · 100%** sempre usa a resolução completa,
+independente da qualidade, para preservar um pixel do arquivo por pixel da tela.
+
 A Aurora SVG usa um desfoque animado. Em tela inteira, esse filtro continua
 custoso mesmo com menos quadros. O exemplo **aurora-leve** mantém céu, estrelas e
 montanhas vetoriais, mas incorpora a faixa com o desfoque já calculado em PNG.
@@ -118,8 +125,8 @@ usa o renderer SVG. Vídeo evita recalcular curvas e desfoques, mas o custo da
 decodificação depende do codec, da resolução e da aceleração disponível.
 
 Feche a janela do catálogo depois de aplicar para não manter também a prévia
-animando. A comparação automática usa a mesma Aurora, o mesmo WebKitGTK e uma
-área 3840×1080, com renderização por software. O relatório inclui CPU de toda a
+animando. A comparação automática usa a mesma Aurora e o mesmo WebKitGTK, com
+superfícies 3840×1080 e 1920×540, com renderização por software. O relatório inclui CPU de toda a
 árvore de processos e quadros observados. Os resultados de CI não são uma
 previsão do consumo no computador do usuário.
 

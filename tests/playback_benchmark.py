@@ -25,6 +25,15 @@ from gi.repository import Gio, GLib, Gtk, WebKit
 from motionwall.library import Library
 from motionwall import server
 
+CASES = [("svg-original", "aurora.svg", 60, True),
+         ("svg-30fps", "aurora.svg", 30, False),
+         ("svg-15fps", "aurora.svg", 15, False),
+         ("svg-cached-30fps", "aurora-leve.svg", 30, False),
+         ("video-30fps", "aurora-video.mp4", 30, False),
+         ("svg-balanced-30fps", "aurora.svg", 30, False),
+         ("svg-cached-balanced-30fps", "aurora-leve.svg", 30, False),
+         ("video-balanced-30fps", "aurora-video.mp4", 30, False)]
+
 
 def cpu_tree():
     processes = {}
@@ -50,16 +59,13 @@ class Benchmark(Gtk.Application):
         self.library, self.baseline, self.output = library, baseline, output
         self.results, self.index, self.failed = [], 0, False
         self.current_web = server.WEB_ROOT
-        self.cases = [("svg-original", "aurora.svg", 60, True),
-                      ("svg-30fps", "aurora.svg", 30, False),
-                      ("svg-15fps", "aurora.svg", 15, False),
-                      ("svg-cached-30fps", "aurora-leve.svg", 30, False),
-                      ("video-30fps", "aurora-video.mp4", 30, False)]
-        self.cases = [item for item in self.cases if item[0] == case]
+        self.cases = [item for item in CASES if item[0] == case]
+        self.width = 1920 if "balanced" in case else 3840
+        self.height = self.width * 9 // 32
 
     def do_activate(self):
         self.window = Gtk.ApplicationWindow(application=self, decorated=False,
-                                           default_width=3840, default_height=1080)
+                                           default_width=self.width, default_height=self.height)
         self.transport = server.PreviewServer(self.library)
         self.window.present()
         GLib.timeout_add_seconds(65, self.timeout)
@@ -128,11 +134,11 @@ class Benchmark(Gtk.Application):
             ticks = sum(max(0, value - self.before.get(pid, value)) for pid, value in after.items())
             cpu = 100 * ticks / os.sysconf("SC_CLK_TCK") / duration
             assert debug["loaded"] and debug["playing"], debug
-            assert debug["geometry"]["viewportCenterX"] >= 1900, debug
-            assert abs(debug["geometry"]["viewportCenterY"] - 540) < .5, debug
+            assert abs(debug["geometry"]["viewportCenterX"] - self.width / 2) < .5, debug
+            assert abs(debug["geometry"]["viewportCenterY"] - self.height / 2) < .5, debug
             frames = debug.get("rendered", 0) - self.before_debug.get("rendered", 0)
             actual_fps = frames / duration if "rendered" in debug else None
-            if self.cases[self.index][0] in {"svg-30fps", "svg-15fps", "svg-cached-30fps"}:
+            if self.cases[self.index][0].startswith("svg-") and self.cases[self.index][0] != "svg-original":
                 target = self.cases[self.index][2]
                 # A software renderer may fall below its budget; enforce the cap,
                 # rather than requiring a particular machine to achieve the target.
@@ -143,7 +149,7 @@ class Benchmark(Gtk.Application):
                 assert frames > 0 or debug.get("time") != self.before_debug.get("time"), debug
             result = {"case": self.cases[self.index][0], "cpu_percent": round(cpu, 2),
                       "observed_fps": round(actual_fps, 2) if actual_fps is not None else None,
-                      "seconds": round(duration, 2), "viewport": "3840x1080",
+                      "seconds": round(duration, 2), "viewport": f"{self.width}x{self.height}",
                       "software_rendering": os.environ.get("LIBGL_ALWAYS_SOFTWARE") == "1"}
             self.results.append(result)
             print("BENCHMARK " + json.dumps(result), flush=True)
@@ -163,7 +169,7 @@ class Benchmark(Gtk.Application):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--baseline-player", type=Path, required=True)
-    parser.add_argument("--case", choices=["svg-original", "svg-30fps", "svg-15fps", "svg-cached-30fps", "video-30fps"])
+    parser.add_argument("--case", choices=[case[0] for case in CASES])
     parser.add_argument("--output", type=Path, default=ROOT / "smoke-output/playback-benchmark.json")
     args = parser.parse_args()
     if not args.case:
@@ -171,7 +177,7 @@ def main():
         # invisible views or asynchronous teardown cannot contaminate the next.
         results = []
         with tempfile.TemporaryDirectory(prefix="motionwall-benchmark-results-") as directory:
-            for case in ("svg-original", "svg-30fps", "svg-15fps", "svg-cached-30fps", "video-30fps"):
+            for case, *_ in CASES:
                 path = Path(directory) / f"{case}.json"
                 subprocess.run([sys.executable, __file__, "--baseline-player", str(args.baseline_player),
                                 "--case", case, "--output", str(path)], check=True)
