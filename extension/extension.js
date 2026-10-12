@@ -67,8 +67,11 @@ export default class MotionWallDesktop extends Extension {
         this._signals.push([object, object.connect(signal, callback)]);
     }
 
-    _owns(window) {
-        return Boolean(this._client && window && this._client.owns_window(window));
+    _owns(value) {
+        // Workspace receives Meta.Window, while WorkspaceThumbnail receives
+        // Meta.WindowActor. Never pass an actor to Mutter's owns_window().
+        const window = value instanceof Meta.WindowActor ? value.meta_window : value;
+        return Boolean(this._client && window instanceof Meta.Window && this._client.owns_window(window));
     }
 
     _returnFocus() {
