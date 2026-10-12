@@ -14,7 +14,10 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+INSTALLED = os.environ.get("MOTIONWALL_TEST_INSTALLED") == "1"
+MODULE_ROOT = Path("/opt/motionwall") if INSTALLED else ROOT
+EXAMPLES = MODULE_ROOT / "motionwall/examples"
+sys.path.insert(0, str(MODULE_ROOT))
 
 
 def wait_for(function, description, timeout=35):
@@ -42,7 +45,8 @@ def main():
         os.environ["GSETTINGS_BACKEND"] = "memory"
         os.environ["GDK_BACKEND"] = "wayland"
         from gi.repository import Gio, GLib
-        from motionwall.desktop import DesktopBridge, install_extension, UUID, OBJECT, INTERFACE
+        from motionwall.desktop import DesktopBridge, install_extension, UUID, OBJECT, INTERFACE, PROJECT
+        assert PROJECT == MODULE_ROOT, (PROJECT, MODULE_ROOT)
         from motionwall.library import Library
         install_extension()
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
@@ -121,7 +125,7 @@ def main():
                              "k.notify_keyval(t + 3, Clutter.KEY_Super_L, Clutter.KeyState.RELEASED); return true; })()")
                 library = Library(temporary / "catalogue")
                 for filename in ("aurora.svg", "orbit.json", "pulse.gif", "aurora-video.mp4"):
-                    artwork, _ = library.import_file(ROOT / "motionwall/examples" / filename)
+                    artwork, _ = library.import_file(EXAMPLES / filename)
                     status = asynchronous(lambda done: bridge.apply(library, artwork.id,
                         {"fit": "native", "speed": 1, "loop": True}, done))
                     assert status["state"] == "starting", status
@@ -185,7 +189,7 @@ def main():
                     wait_for(lambda: evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).length") == 0,
                              "renderer removed")
                     print(f"DESKTOP PASS: {filename} animates behind windows and restores original", flush=True)
-                light, _ = library.import_file(ROOT / "motionwall/examples/aurora-leve.svg")
+                light, _ = library.import_file(EXAMPLES / "aurora-leve.svg")
                 asynchronous(lambda done: bridge.apply(library, light.id,
                     {"fit": "cover", "speed": 1, "loop": True, "quality": "balanced", "fps": 30}, done))
                 status = wait_for(active, "balanced-resolution wallpaper")
@@ -214,7 +218,7 @@ def main():
                     return image.getpixel((image.width - 20, image.height - 30))
                 background = pixels("alpha-baseline.png")
                 assert max(abs(a - b) for a, b in zip(background, (37, 64, 107))) < 3, background
-                rain, _ = library.import_file(ROOT / "motionwall/examples/chuva-alpha.svg")
+                rain, _ = library.import_file(EXAMPLES / "chuva-alpha.svg")
                 for transparent, solid in ((True, "#c52a52"), (False, "#c52a52"), (False, "#000000")):
                     asynchronous(lambda done: bridge.apply(library, rain.id,
                         {"fit": "native", "speed": 1, "loop": True, "transparent": transparent, "background": solid}, done))

@@ -42,13 +42,28 @@ jobs:
           PROFILE
           sudo apparmor_parser -r /etc/apparmor.d/motionwall-ci-bwrap
           sudo sh -c 'cat /sys/kernel/security/apparmor/profiles' | rg 'bwrap|python' || true
-      - name: GTK and WebKit playback
+      - name: Build and install Debian package
+        run: |
+          /usr/bin/python3 tools/build_deb.py
+          sudo apt-get install -y ./dist/motionwall_0.2.5_all.deb
+          desktop-file-validate /usr/share/applications/io.github.willdeschepper.MotionWall.desktop
+      - name: Installed desktop launcher without source checkout
         env:
           GTK_A11Y: none
           LIBGL_ALWAYS_SOFTWARE: '1'
           GSK_RENDERER: cairo
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'
-        run: xvfb-run -a dbus-run-session -- ./dev.sh --smoke-test
+        run: xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/installed_smoke.py
+      - name: GTK and WebKit playback
+        env:
+          GTK_A11Y: none
+          MOTIONWALL_TEST_INSTALLED: '1'
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          cd /tmp
+          xvfb-run -a dbus-run-session -- /usr/bin/motionwall --smoke-test
       - name: Original dimensions on HiDPI
         env:
           GTK_A11Y: none
@@ -56,7 +71,9 @@ jobs:
           LIBGL_ALWAYS_SOFTWARE: '1'
           GSK_RENDERER: cairo
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'
-        run: xvfb-run -a dbus-run-session -- ./dev.sh --smoke-test
+        run: |
+          cd /tmp
+          xvfb-run -a dbus-run-session -- /usr/bin/motionwall --smoke-test
       - name: Aurora CPU comparison at ultrawide resolution
         env:
           GTK_A11Y: none
@@ -69,6 +86,7 @@ jobs:
       - name: GNOME Wayland wallpaper and restore
         env:
           GTK_A11Y: none
+          MOTIONWALL_TEST_INSTALLED: '1'
           LIBGL_ALWAYS_SOFTWARE: '1'
           GSK_RENDERER: cairo
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'
@@ -79,3 +97,8 @@ jobs:
         with:
           name: motionwall-desktop-test-${{ matrix.os }}
           path: smoke-output/
+      - name: Installable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: motionwall-deb-${{ matrix.os }}
+          path: dist/motionwall_0.2.5_all.deb

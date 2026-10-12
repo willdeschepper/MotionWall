@@ -1,7 +1,7 @@
 # MotionWall
 
 Aplicativo de wallpapers animados para Ubuntu/GNOME, feito com Python,
-GTK4/Libadwaita e WebKitGTK. Versão **0.2.4**, com integração GNOME experimental.
+GTK4/Libadwaita e WebKitGTK. Versão **0.2.5**, com integração GNOME experimental.
 
 Importe uma animação, veja a prévia e clique em **Aplicar como fundo**. No
 GNOME Wayland, isso requer a extensão MotionWall Desktop. A animação roda em
@@ -14,18 +14,36 @@ No terminal (Bash ou Fish):
 
 ```sh
 sudo apt update
-sudo apt install git python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+sudo apt install git
 git clone --branch feat/native-preview https://github.com/willdeschepper/MotionWall.git
 cd MotionWall
-./dev.sh --doctor
-./dev.sh
+./install.sh
 ```
 
-O código está na branch `feat/native-preview`, em revisão no PR #1. Se já clonou
-o repositório, execute `git fetch origin`, `git switch feat/native-preview` e
-`git pull --ff-only` na pasta antes de abrir. Preserve alterações locais antes
-de trocar de branch.
-O aplicativo usa o Python do sistema; não precisa de pip ou ambiente virtual.
+Se já tem o projeto, feche o catálogo e execute na pasta:
+
+```sh
+git pull --ff-only
+./install.sh
+```
+
+O instalador gera um pacote `.deb`, instala as dependências pelo APT e registra
+**MotionWall** na lista de aplicativos, com ícone. Abra pelo menu do GNOME ou
+execute `motionwall`. Não use `sudo ./install.sh`: ele pede sudo somente para
+instalar o pacote e copia a integração GNOME para seu usuário normal.
+
+O programa fica em `/opt/motionwall`, com o comando `/usr/bin/motionwall`.
+Funciona sem a pasta do projeto, sem `dev.sh`, pip ou ambiente virtual.
+Sua biblioteca e configurações existentes são preservadas. Para atualizar,
+repita `git pull --ff-only` e `./install.sh`. Para remover o pacote:
+
+```sh
+sudo apt remove motionwall
+```
+
+A remoção preserva seu catálogo e a cópia da extensão do usuário. Use
+**Restaurar fundo** e desative a extensão se quiser encerrar a integração.
+O código está na branch `feat/native-preview`, em revisão no PR #1.
 
 Use **Importar** ou arraste arquivos sobre a janela. Para começar sem baixar
 animações, abra o menu e escolha **Importar exemplos**. Há um SVG ultrawide,
@@ -33,10 +51,10 @@ um GIF, uma animação Lottie, a Aurora em MP4 e uma chuva com alpha incluídos.
 
 ## Ativar o fundo animado no GNOME Wayland
 
-Na pasta do projeto:
+O instalador já copia a extensão. Para reinstalá-la manualmente:
 
 ```sh
-./dev.sh --install-extension
+motionwall --install-extension
 ```
 
 Na primeira instalação, saia e entre novamente na sessão do GNOME para que
@@ -44,7 +62,7 @@ ele descubra a extensão. Salve seu trabalho antes de sair. Depois execute:
 
 ```sh
 gnome-extensions enable motionwall@willdeschepper.github.io
-./dev.sh
+motionwall
 ```
 
 Selecione uma animação e clique em **Aplicar como fundo**, no topo da janela.
@@ -59,7 +77,7 @@ versão; o GNOME precisa de uma nova sessão para recarregar o módulo JavaScrip
 ```sh
 gnome-extensions disable motionwall@willdeschepper.github.io
 git pull --ff-only
-./dev.sh --install-extension
+./install.sh
 ```
 
 Saia e entre novamente na sessão, ative a extensão e abra o aplicativo com os
@@ -145,7 +163,7 @@ Transparência em codecs de vídeo depende do decoder; H.264/MP4 comum não a fo
 
 Esta atualização também muda a ponte GNOME para repassar fluidez e transparência.
 Desative a extensão, feche o catálogo, execute `git pull --ff-only` e
-`./dev.sh --install-extension`. Saia e entre na sessão, ative a extensão e
+`./install.sh`. Saia e entre na sessão, ative a extensão e
 reaplique. O módulo JavaScript do GNOME precisa ser recarregado.
 
 ## Cor sólida com 100% de opacidade
@@ -191,6 +209,11 @@ passaram no teste isolado de GNOME Wayland para GIF, SVG e Lottie. Codecs de ví
 em hardware e múltiplos monitores físicos ainda não foram validados.
 
 ## Dados e desenvolvimento
+
+`dev.sh` continua disponível para trabalhar no código sem instalar. Para gerar
+o pacote sem instalar, execute `/usr/bin/python3 tools/build_deb.py`; o resultado
+fica em `dist/`. O CI instala esse pacote, valida o lançador e abre o catálogo
+com a pasta do projeto oculta, além de testar o renderer instalado no GNOME.
 
 O catálogo fica em `~/.local/share/motionwall` (ou em `$XDG_DATA_HOME/motionwall`).
 Para experimentar sem alterar seu catálogo:
@@ -238,7 +261,7 @@ e vídeo continuam sendo reproduzidos no processo WebKit. O compositor não exec
 o motor de animação. A restauração remove os clones, os handlers e o processo.
 
 Próximas etapas: validação em hardware, pausa por tela cheia e energia, controles
-independentes por monitor, inicialização no login e empacotamento.
+independentes por monitor, inicialização no login e distribuição de versões estáveis.
 
 ## Licenças
 

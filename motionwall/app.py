@@ -512,6 +512,7 @@ class MotionWallApplication(Adw.Application):
 
     def do_startup(self):
         Adw.Application.do_startup(self)
+        Gtk.Window.set_default_icon_name("io.github.willdeschepper.MotionWall")
         self.server = PreviewServer(self.library)
         if not self.smoke:
             try:
@@ -519,10 +520,11 @@ class MotionWallApplication(Adw.Application):
                 self.desktop_poll = GLib.timeout_add_seconds(2, self.poll_desktop)
             except GLib.Error:
                 pass
-        for name, callback in (("examples", self._examples), ("about", self._about)):
+        for name, callback in (("examples", self._examples), ("about", self._about), ("quit", self._quit)):
             action = Gio.SimpleAction.new(name, None)
             action.connect("activate", callback)
             self.add_action(action)
+        self.set_accels_for_action("app.quit", ["<primary>q"])
         if self.smoke:
             GLib.timeout_add_seconds(35, lambda: self.smoke_fail("Smoke test timed out"))
 
@@ -565,6 +567,12 @@ class MotionWallApplication(Adw.Application):
 
     def _examples(self, *_args):
         self.window.import_files(sorted(EXAMPLES.glob("*")))
+
+    def _quit(self, *_args):
+        if self.window:
+            self.window.close()
+        else:
+            self.quit()
 
     def _about(self, *_args):
         dialog = Adw.AboutWindow(transient_for=self.window, application_name="MotionWall",
