@@ -1,7 +1,7 @@
 # MotionWall
 
 Aplicativo de wallpapers animados para Ubuntu/GNOME, feito com Python,
-GTK4/Libadwaita e WebKitGTK. Versão **0.2.0**, com integração GNOME experimental.
+GTK4/Libadwaita e WebKitGTK. Versão **0.2.1**, com integração GNOME experimental.
 
 Importe uma animação, veja a prévia e clique em **Aplicar como fundo**. No
 GNOME Wayland, isso requer a extensão MotionWall Desktop. A animação roda em
@@ -52,6 +52,20 @@ As opções de enquadramento, velocidade e loop são copiadas na aplicação;
 para mudar as opções do fundo ativo, ajuste a prévia e aplique novamente.
 Para voltar ao fundo normal, clique em **Restaurar fundo**. A janela do
 catálogo também oferece a instalação da integração se ela estiver ausente.
+
+Para atualizar uma extensão já instalada, desative-a antes de copiar a nova
+versão; o GNOME precisa de uma nova sessão para recarregar o módulo JavaScript:
+
+```sh
+gnome-extensions disable motionwall@willdeschepper.github.io
+git pull --ff-only
+./dev.sh --install-extension
+```
+
+Saia e entre novamente na sessão, ative a extensão e abra o aplicativo com os
+comandos acima. A versão 0.2.1 corrige o filtro das miniaturas de workspace e
+restringe a recuperação de foco ao espaço de trabalho atual. A animação fica
+no desktop; as miniaturas do Overview usam o fundo estático do GNOME.
 
 A extensão declara GNOME 46–50 e trata a mudança de API do Mutter 50.
 A validação automática passou em sessões isoladas de GNOME 46/Wayland no
@@ -112,7 +126,9 @@ xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/desktop_smoke.py
 
 Ele instala a extensão em uma pasta temporária, abre outra sessão GNOME com
 suas próprias configurações e barramento, aplica GIF/SVG/Lottie, verifica avanço
-da animação e restauração e desabilita a extensão. Não altera sua sessão principal.
+da animação e restauração e desabilita a extensão. Também cria uma janela comum,
+troca espaços por teclado, abre o Overview, verifica as miniaturas e move a janela
+para outro espaço. Não altera sua sessão principal.
 O CI salva screenshot e logs nos artefatos `motionwall-desktop-test-ubuntu-24.04`
 e `motionwall-desktop-test-ubuntu-26.04`.
 
