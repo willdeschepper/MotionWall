@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -43,7 +44,7 @@ def cpu_tree():
 
 
 class Benchmark(Gtk.Application):
-    def __init__(self, library, baseline, output):
+    def __init__(self, library, baseline, output, case):
         super().__init__(application_id="io.github.willdeschepper.MotionWall.Benchmark",
                          flags=Gio.ApplicationFlags.NON_UNIQUE)
         self.library, self.baseline, self.output = library, baseline, output
@@ -54,6 +55,7 @@ class Benchmark(Gtk.Application):
                       ("svg-15fps", "aurora.svg", 15, False),
                       ("svg-cached-30fps", "aurora-leve.svg", 30, False),
                       ("video-30fps", "aurora-video.mp4", 30, False)]
+        self.cases = [item for item in self.cases if item[0] == case]
 
     def do_activate(self):
         self.window = Gtk.ApplicationWindow(application=self, decorated=False,
@@ -141,7 +143,8 @@ class Benchmark(Gtk.Application):
                 assert frames > 0 or debug.get("time") != self.before_debug.get("time"), debug
             result = {"case": self.cases[self.index][0], "cpu_percent": round(cpu, 2),
                       "observed_fps": round(actual_fps, 2) if actual_fps is not None else None,
-                      "seconds": round(duration, 2), "viewport": "3840x1080", "software_rendering": True}
+                      "seconds": round(duration, 2), "viewport": "3840x1080",
+                      "software_rendering": os.environ.get("LIBGL_ALWAYS_SOFTWARE") == "1"}
             self.results.append(result)
             print("BENCHMARK " + json.dumps(result), flush=True)
             self.view.evaluate_javascript("MotionWall.clear()", -1, None, None, None, None, None)
@@ -160,7 +163,22 @@ class Benchmark(Gtk.Application):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--baseline-player", type=Path, required=True)
+    parser.add_argument("--case", choices=["svg-original", "svg-30fps", "svg-15fps", "svg-cached-30fps", "video-30fps"])
+    parser.add_argument("--output", type=Path, default=ROOT / "smoke-output/playback-benchmark.json")
     args = parser.parse_args()
+    if not args.case:
+        # Fresh GTK/WebKit process tree per case: retained browser contexts,
+        # invisible views or asynchronous teardown cannot contaminate the next.
+        results = []
+        with tempfile.TemporaryDirectory(prefix="motionwall-benchmark-results-") as directory:
+            for case in ("svg-original", "svg-30fps", "svg-15fps", "svg-cached-30fps", "video-30fps"):
+                path = Path(directory) / f"{case}.json"
+                subprocess.run([sys.executable, __file__, "--baseline-player", str(args.baseline_player),
+                                "--case", case, "--output", str(path)], check=True)
+                results.extend(json.loads(path.read_text()))
+        args.output.parent.mkdir(exist_ok=True)
+        args.output.write_text(json.dumps(results, indent=2))
+        return 0
     with tempfile.TemporaryDirectory(prefix="motionwall-benchmark-") as temporary:
         temporary = Path(temporary)
         library = Library(temporary / "library")
@@ -169,7 +187,7 @@ def main():
         baseline = temporary / "web"
         shutil.copytree(server.WEB_ROOT, baseline)
         shutil.copyfile(args.baseline_player, baseline / "player.js")
-        app = Benchmark(library, baseline, ROOT / "smoke-output/playback-benchmark.json")
+        app = Benchmark(library, baseline, args.output, args.case)
         result = app.run([sys.argv[0]])
         return 1 if app.failed else result
 

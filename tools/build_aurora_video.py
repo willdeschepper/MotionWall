@@ -50,12 +50,13 @@ def build():
         group = next(child for child in light if child.get("filter") == "url(#blur)")
         namespace = "{http://www.w3.org/2000/svg}"
         image = ET.Element(namespace + "image", {"width": "1920", "height": "540",
-            "href": "data:image/png;base64," + base64.b64encode((directory / "ribbon.png").read_bytes()).decode()})
+            "{http://www.w3.org/1999/xlink}href": "data:image/png;base64," + base64.b64encode((directory / "ribbon.png").read_bytes()).decode()})
         for animation in next(iter(group)):
             image.append(copy.deepcopy(animation))
         light.insert(list(light).index(group), image)
         light.remove(group)
         ET.register_namespace("", "http://www.w3.org/2000/svg")
+        ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
         light_path = ROOT / "motionwall/examples/aurora-leve.svg"
         ET.ElementTree(light).write(light_path, encoding="unicode")
         print(f"Created {light_path.name}: {light_path.stat().st_size} bytes")
