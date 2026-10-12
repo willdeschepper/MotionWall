@@ -42,7 +42,7 @@ def main():
         os.environ["GSETTINGS_BACKEND"] = "memory"
         os.environ["GDK_BACKEND"] = "wayland"
         from gi.repository import Gio, GLib
-        from motionwall.desktop import install_extension, UUID, OBJECT, INTERFACE
+        from motionwall.desktop import DesktopBridge, install_extension, UUID, OBJECT, INTERFACE
         from motionwall.library import Library
         install_extension()
         bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
@@ -53,6 +53,22 @@ def main():
 
         def desktop(method, args=None):
             return json.loads(call(INTERFACE, method, args)[0])
+
+        def asynchronous(start):
+            loop = GLib.MainLoop()
+            reply = []
+            def complete(status, error):
+                reply.append((status, error))
+                loop.quit()
+            timeout = GLib.timeout_add_seconds(8, lambda: (loop.quit(), GLib.SOURCE_REMOVE)[1])
+            start(complete)
+            loop.run()
+            if reply:
+                GLib.source_remove(timeout)
+            assert reply, "GUI bridge callback timed out"
+            status, error = reply[0]
+            assert error is None, error
+            return status
 
         def evaluate(script):
             success, result = call("org.gnome.Shell", "Eval", GLib.Variant("(s)", (script,)), "/org/gnome/Shell")
@@ -74,14 +90,14 @@ def main():
                 enabled = call("org.gnome.Shell.Extensions", "EnableExtension", GLib.Variant("(s)", (UUID,)), "/org/gnome/Shell")
                 assert enabled[0], "Extension did not enable"
                 wait_for(lambda: desktop("Status"), "MotionWall bridge")
+                bridge = DesktopBridge()
                 # Avoid startup overview when testing the actual desktop background.
                 evaluate("Main.overview.hide(); true")
                 library = Library(temporary / "catalogue")
                 for filename in ("aurora.svg", "orbit.json", "pulse.gif"):
                     artwork, _ = library.import_file(ROOT / "motionwall/examples" / filename)
-                    request = GLib.Variant("(ssss)", (str(ROOT), str(library.root), artwork.id,
-                                                      json.dumps({"fit": "cover", "speed": 1, "loop": True})))
-                    status = desktop("Apply", request)
+                    status = asynchronous(lambda done: bridge.apply(library, artwork.id,
+                        {"fit": "cover", "speed": 1, "loop": True}, done))
                     assert status["state"] == "starting", status
                     def active():
                         state = desktop("Status")
@@ -102,7 +118,7 @@ def main():
                         time.sleep(.5)
                         call("org.gnome.Shell.Screenshot", "Screenshot", GLib.Variant("(bbs)",
                              (False, False, str(output / "desktop.png"))), "/org/gnome/Shell/Screenshot")
-                    status = desktop("Stop")
+                    status = asynchronous(bridge.stop)
                     assert status["state"] == "stopped" and status["layers"] == 0 and status["surfaces"] == 0, status
                     wait_for(lambda: evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).length") == 0,
                              "renderer removed")

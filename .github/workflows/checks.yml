@@ -24,14 +24,20 @@ jobs:
         run: |
           # Ubuntu 24.04 restricts user namespaces for unprofiled binaries.
           # Permit bubblewrap specifically, keeping WebKit's sandbox enabled.
+          # A second profile for the same executable is ambiguous on newer Ubuntu.
+          # Replace only the runner's bubblewrap profile, not the global policy.
+          if [ -f /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict
+          fi
           sudo tee /etc/apparmor.d/motionwall-ci-bwrap >/dev/null <<'PROFILE'
           abi <abi/4.0>,
           include <tunables/global>
-          profile motionwall-ci-bwrap /usr/bin/bwrap flags=(unconfined) {
+          profile motionwall-ci-bwrap /usr/bin/bwrap flags=(default_allow) {
             userns,
           }
           PROFILE
           sudo apparmor_parser -r /etc/apparmor.d/motionwall-ci-bwrap
+          sudo sh -c 'cat /sys/kernel/security/apparmor/profiles' | rg 'bwrap|python' || true
       - name: GTK and WebKit playback
         env:
           GTK_A11Y: none
