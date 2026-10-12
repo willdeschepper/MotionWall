@@ -52,6 +52,7 @@ class Benchmark(Gtk.Application):
         self.cases = [("svg-original", "aurora.svg", 60, True),
                       ("svg-30fps", "aurora.svg", 30, False),
                       ("svg-15fps", "aurora.svg", 15, False),
+                      ("svg-cached-30fps", "aurora-leve.svg", 30, False),
                       ("video-30fps", "aurora-video.mp4", 30, False)]
 
     def do_activate(self):
@@ -129,7 +130,7 @@ class Benchmark(Gtk.Application):
             assert abs(debug["geometry"]["viewportCenterY"] - 540) < .5, debug
             frames = debug.get("rendered", 0) - self.before_debug.get("rendered", 0)
             actual_fps = frames / duration if "rendered" in debug else None
-            if self.cases[self.index][0] in {"svg-30fps", "svg-15fps"}:
+            if self.cases[self.index][0] in {"svg-30fps", "svg-15fps", "svg-cached-30fps"}:
                 target = self.cases[self.index][2]
                 # A software renderer may fall below its budget; enforce the cap,
                 # rather than requiring a particular machine to achieve the target.
@@ -163,7 +164,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="motionwall-benchmark-") as temporary:
         temporary = Path(temporary)
         library = Library(temporary / "library")
-        for name in ("aurora.svg", "aurora-video.mp4"):
+        for name in ("aurora.svg", "aurora-leve.svg", "aurora-video.mp4"):
             library.import_file(ROOT / "motionwall/examples" / name)
         baseline = temporary / "web"
         shutil.copytree(server.WEB_ROOT, baseline)

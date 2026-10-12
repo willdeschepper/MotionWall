@@ -4,6 +4,7 @@ Development dependencies: Inkscape, FFmpeg, Pillow. No runtime dependency.
 The SVG's 9-second translation and 6-second opacity cycles meet at 18 seconds.
 """
 from pathlib import Path
+import base64
 import copy
 import subprocess
 import tempfile
@@ -43,6 +44,21 @@ def build():
             subprocess.run(["inkscape", str(path), "--export-area-page", "--export-width=1920",
                             f"--export-filename={png}"], check=True)
             layers[name] = Image.open(png).convert("RGBA")
+        # Keep sky, stars and mountains vector-based. Only the static blurred
+        # ribbon becomes an embedded bitmap; the same SMIL motion/opacity stays.
+        light = copy.deepcopy(source)
+        group = next(child for child in light if child.get("filter") == "url(#blur)")
+        namespace = "{http://www.w3.org/2000/svg}"
+        image = ET.Element(namespace + "image", {"width": "1920", "height": "540",
+            "href": "data:image/png;base64," + base64.b64encode((directory / "ribbon.png").read_bytes()).decode()})
+        for animation in next(iter(group)):
+            image.append(copy.deepcopy(animation))
+        light.insert(list(light).index(group), image)
+        light.remove(group)
+        ET.register_namespace("", "http://www.w3.org/2000/svg")
+        light_path = ROOT / "motionwall/examples/aurora-leve.svg"
+        ET.ElementTree(light).write(light_path, encoding="unicode")
+        print(f"Created {light_path.name}: {light_path.stat().st_size} bytes")
         encoder = subprocess.Popen([
             "ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba",
             "-s", "1920x540", "-r", "30", "-i", "pipe:0", "-an", "-c:v", "libx264",

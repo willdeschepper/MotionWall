@@ -104,7 +104,10 @@ continuam iguais; o limite reduz a frequência de pintura. O controle vale para
 SVG (CSS e SMIL) e Lottie; GIF e vídeo seguem os quadros do arquivo.
 
 A Aurora SVG usa um desfoque animado. Em tela inteira, esse filtro continua
-custoso mesmo com menos quadros. Para essa animação, use **aurora-video** em
+custoso mesmo com menos quadros. O exemplo **aurora-leve** mantém céu, estrelas e
+montanhas vetoriais, mas incorpora a faixa com o desfoque já calculado em PNG.
+Preserva os ciclos de movimento e opacidade; evita recalcular o filtro durante
+a reprodução. Para comparar com vídeo, use **aurora-video** em
 **Importar exemplos**: a mesma cena foi pré-renderizada em H.264, 1920×540,
 30 fps, sem áudio, com um loop de 18 segundos. Ela é ampliada normalmente no
 monitor 3840×1080. O script `tools/build_aurora_video.py` reproduz a geração.
