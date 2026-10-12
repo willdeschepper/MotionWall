@@ -178,7 +178,7 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(self.library.index.read_text(), '{"broken": true}')
 
     def test_preferences_are_persisted(self):
-        self.library.set_settings(fit="native", speed=1.5, loop=False, fps=15, transparent=False, quality="native")
+        self.library.set_settings(fit="native", speed=1.5, loop=False, fps=15, transparent=False, quality="native", background="#C52A52")
         restored = Library(self.library.root)
         self.assertEqual(restored.settings["fit"], "native")
         self.assertEqual(restored.settings["speed"], 1.5)
@@ -186,6 +186,7 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(restored.settings["fps"], 15)
         self.assertFalse(restored.settings["transparent"])
         self.assertEqual(restored.settings["quality"], "native")
+        self.assertEqual(restored.settings["background"], "#c52a52")
 
 
 if __name__ == "__main__":

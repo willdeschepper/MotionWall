@@ -106,6 +106,8 @@ export default class MotionWallDesktop extends Extension {
             loop: values.loop !== false,
             fps: [15, 30, 60].includes(values.fps) ? values.fps : 30,
             transparent: values.transparent !== false,
+            background: typeof values.background === 'string' && /^#[0-9a-f]{6}$/i.test(values.background)
+                ? values.background.toLowerCase() : '#111827',
             quality: values.quality === 'native' ? 'native' : 'balanced'};
         this.Stop();
         this._request = {root, data, id, options};

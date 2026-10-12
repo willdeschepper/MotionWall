@@ -1,7 +1,7 @@
 # MotionWall
 
 Aplicativo de wallpapers animados para Ubuntu/GNOME, feito com Python,
-GTK4/Libadwaita e WebKitGTK. Versão **0.2.3**, com integração GNOME experimental.
+GTK4/Libadwaita e WebKitGTK. Versão **0.2.4**, com integração GNOME experimental.
 
 Importe uma animação, veja a prévia e clique em **Aplicar como fundo**. No
 GNOME Wayland, isso requer a extensão MotionWall Desktop. A animação roda em
@@ -147,6 +147,24 @@ Esta atualização também muda a ponte GNOME para repassar fluidez e transparê
 Desative a extensão, feche o catálogo, execute `git pull --ff-only` e
 `./dev.sh --install-extension`. Saia e entre na sessão, ative a extensão e
 reaplique. O módulo JavaScript do GNOME precisa ser recarregado.
+
+## Cor sólida com 100% de opacidade
+
+Em **Cor do fundo**, escolha uma cor e clique em **Usar cor**. Isso desativa
+**Fundo transparente** e preenche toda a área com a cor escolhida, sempre com
+100% de opacidade. A animação aparece por cima desse fundo. Clique em
+**Aplicar como fundo** para copiar a escolha para o wallpaper ativo.
+
+O seletor não oferece alpha para a cor sólida. Para voltar a sobrepor a
+animação ao wallpaper estático, ative **Fundo transparente** e reaplique.
+A cor e a escolha de transparência são salvas. Fundos desenhados dentro do
+arquivo continuam fazendo parte da animação.
+
+A versão 0.2.4 guarda uma cópia das opções ao aplicar e o renderer recupera
+campos que uma ponte GNOME antiga ainda carregada não encaminha. Assim, cor e
+opacidade funcionam após atualizar o código, fechar o catálogo e restaurar e
+reaplicar o fundo, sem depender de recarregar a extensão para essa correção.
+A qualidade Equilibrada ainda requer a ponte atual, como explicado acima.
 
 ## Recursos desta versão
 

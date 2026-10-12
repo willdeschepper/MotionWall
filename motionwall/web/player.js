@@ -12,7 +12,7 @@
   let ended = false;
   let loaded = false;
   let kind = null;
-  const settings = { fit: "contain", speed: 1, loop: true, fps: 30, transparent: true };
+  const settings = { fit: "contain", speed: 1, loop: true, fps: 30, transparent: true, background: "#111827" };
   let surface = null;
   const desktop = new URLSearchParams(location.search).get("desktop") === "1";
 
@@ -306,6 +306,10 @@
     if (typeof values.loop === "boolean") settings.loop = values.loop;
     if ([15, 30, 60].includes(values.fps)) settings.fps = values.fps;
     if (typeof values.transparent === "boolean") settings.transparent = values.transparent;
+    if (typeof values.background === "string" && /^#[0-9a-f]{6}$/i.test(values.background)) {
+      settings.background = values.background.toLowerCase();
+    }
+    document.documentElement.style.setProperty("--wallpaper-background", settings.background);
     document.documentElement.dataset.transparent = String(settings.transparent);
     stage.dataset.fit = settings.fit;
     engine?.configure();
@@ -373,6 +377,7 @@
       const bounds = surface?.node.getBoundingClientRect();
       const viewport = stage.getBoundingClientRect();
       return { kind, loaded, playing: isPlaying(), ended, ...settings, ...engine?.debug(),
+        backgroundColor: getComputedStyle(document.body).backgroundColor,
         geometry: bounds ? { width: bounds.width, height: bounds.height,
           centerX: bounds.x + bounds.width / 2, centerY: bounds.y + bounds.height / 2,
           viewportCenterX: viewport.x + viewport.width / 2, viewportCenterY: viewport.y + viewport.height / 2,

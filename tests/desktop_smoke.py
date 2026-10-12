@@ -215,18 +215,32 @@ def main():
                 background = pixels("alpha-baseline.png")
                 assert max(abs(a - b) for a, b in zip(background, (37, 64, 107))) < 3, background
                 rain, _ = library.import_file(ROOT / "motionwall/examples/chuva-alpha.svg")
-                for transparent in (True, False):
+                for transparent, solid in ((True, "#c52a52"), (False, "#c52a52"), (False, "#000000")):
                     asynchronous(lambda done: bridge.apply(library, rain.id,
-                        {"fit": "native", "speed": 1, "loop": True, "transparent": transparent}, done))
+                        {"fit": "native", "speed": 1, "loop": True, "transparent": transparent, "background": solid}, done))
                     wait_for(active, "rain wallpaper")
-                    color = pixels(f"alpha-{transparent}.png")
-                    expected = background if transparent else (17, 24, 39)
+                    color = pixels(f"alpha-{transparent}-{solid[1:]}.png")
+                    expected = background if transparent else tuple(int(solid[i:i + 2], 16) for i in (1, 3, 5))
                     assert max(abs(a - b) for a, b in zip(color, expected)) < 3, (transparent, color, expected)
                     asynchronous(bridge.stop)
                     wait_for(lambda: evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).length") == 0,
                              "alpha renderer removed")
                 assert pixels("alpha-restored.png") == background, "Alpha overlay did not restore wallpaper"
-                print("ALPHA DESKTOP PASS: transparent rain reveals static wallpaper; opaque option and restore work", flush=True)
+                # Reproduce the user's still-loaded older bridge: only the three
+                # original options survive forwarding to the subprocess.
+                extension = f"Main.extensionManager.lookup('{UUID}').stateObj"
+                evaluate(f"(() => {{ const e = {extension}; e._colorOriginalStart = e._start; "
+                         "e._start = function() { const v = this._request.options; "
+                         "this._request.options = {fit: v.fit, speed: v.speed, loop: v.loop}; "
+                         "this._colorOriginalStart(); }; return true; })()")
+                asynchronous(lambda done: bridge.apply(library, rain.id,
+                    {"fit": "native", "speed": 1, "loop": True, "transparent": False, "background": "#c52a52"}, done))
+                wait_for(active, "opaque color through legacy bridge")
+                assert pixels("color-legacy-bridge.png") == (197, 42, 82), "Legacy bridge lost solid color"
+                asynchronous(bridge.stop)
+                evaluate(f"(() => {{ const e = {extension}; e._start = e._colorOriginalStart; delete e._colorOriginalStart; return true; }})()")
+                assert pixels("color-legacy-restored.png") == background, "Legacy bridge restore failed"
+                print("COLOR DESKTOP PASS: custom color at 100%, black, transparent wallpaper and legacy bridge", flush=True)
                 # Disable cleans exported interface and all hooks after use.
                 call("org.gnome.Shell.Extensions", "DisableExtension", GLib.Variant("(s)", (UUID,)), "/org/gnome/Shell")
                 print("DESKTOP PASS: extension disabled cleanly", flush=True)

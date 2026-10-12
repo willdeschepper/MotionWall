@@ -13,6 +13,7 @@ gi.require_version("WebKit", "6.0")
 from gi.repository import Gdk, Gio, GLib, Gtk, WebKit  # noqa: E402
 
 from .server import PreviewServer
+from .desktop import renderer_options
 
 
 class WallpaperRenderer(Gtk.Application):
@@ -23,7 +24,7 @@ class WallpaperRenderer(Gtk.Application):
         self.artwork = library.get(identifier)
         if self.artwork is None:
             raise ValueError("A animação aplicada não existe no catálogo.")
-        self.options = options
+        self.options = renderer_options(library, identifier, options)
         self.monitors = monitors
         self.server = None
         self.views = []

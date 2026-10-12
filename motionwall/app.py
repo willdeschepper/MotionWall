@@ -158,6 +158,21 @@ class MotionWallWindow(Adw.ApplicationWindow):
         self.transparent.connect("notify::active", self._options_changed)
         rendering.append(self.transparent)
         content.append(rendering)
+        background_row = Gtk.Box(spacing=12)
+        background_row.append(Gtk.Label(label="Cor do fundo"))
+        dialog = Gtk.ColorDialog(title="Cor do fundo · 100% opaco", with_alpha=False)
+        self.background_color = Gtk.ColorDialogButton(dialog=dialog)
+        color = Gdk.RGBA()
+        color.parse(self.library.settings["background"])
+        self.background_color.set_rgba(color)
+        self.background_color.set_tooltip_text("Escolher uma cor ativa o fundo sólido com 100% de opacidade. Depois clique em Aplicar como fundo.")
+        self.background_color.connect("notify::rgba", self._background_changed)
+        background_row.append(self.background_color)
+        self.use_background = Gtk.Button(label="Usar cor")
+        self.use_background.connect("clicked", self._background_changed)
+        background_row.append(self.use_background)
+        background_row.append(Gtk.Label(label="100% opaco", xalign=0))
+        content.append(background_row)
         quality = Gtk.Box(spacing=12)
         quality.append(Gtk.Label(label="Qualidade do fundo"))
         self.quality = Gtk.DropDown.new_from_strings(["Equilibrada · até 1920×1080", "Máxima · resolução da tela"])
@@ -310,10 +325,19 @@ class MotionWallWindow(Adw.ApplicationWindow):
         self.listbox.select_row(selected or first)
 
     def options(self):
+        color = self.background_color.get_rgba()
+        background = "#" + "".join(f"{max(0, min(255, round(value * 255))):02x}"
+                                   for value in (color.red, color.green, color.blue))
         return {"fit": ["contain", "cover", "stretch", "native"][self.fit.get_selected()],
                 "speed": self.speed.get_value(), "loop": self.loop.get_active(),
                 "fps": [15, 30, 60][self.fps.get_selected()], "transparent": self.transparent.get_active(),
-                "quality": ["balanced", "native"][self.quality.get_selected()]}
+                "quality": ["balanced", "native"][self.quality.get_selected()], "background": background}
+
+    def _background_changed(self, *_args):
+        if self._building:
+            return
+        self.transparent.set_active(False)
+        self._options_changed()
 
     def _options_changed(self, *_args):
         if self._building:
@@ -590,6 +614,30 @@ class MotionWallApplication(Adw.Application):
                 self.smoke_fail(f"Pause did not hold: {data}")
                 return
             print(f"SMOKE PASS: {data['kind']} advanced and paused", flush=True)
+            color = Gdk.RGBA()
+            color.parse("#c52a52")
+            self.window.background_color.set_rgba(color)
+            self.window.use_background.emit("clicked")
+            GLib.timeout_add(150, self._smoke_background)
+        self._debug(check)
+        return GLib.SOURCE_REMOVE
+
+    def _smoke_background(self):
+        def check(data):
+            if data.get("transparent") or data.get("background") != "#c52a52" or data.get("backgroundColor") != "rgb(197, 42, 82)":
+                self.smoke_fail(f"Opaque background color failed: {data}")
+                return
+            self.window.transparent.set_active(True)
+            GLib.timeout_add(150, self._smoke_background_alpha)
+        self._debug(check)
+        return GLib.SOURCE_REMOVE
+
+    def _smoke_background_alpha(self):
+        def check(data):
+            if not data.get("transparent") or data.get("backgroundColor") != "rgba(0, 0, 0, 0)":
+                self.smoke_fail(f"Transparent background did not return: {data}")
+                return
+            print(f"COLOR PASS: {data['kind']} uses chosen opaque color and switches back to alpha", flush=True)
             self.window.fit.set_selected(3)
             GLib.timeout_add(150, self._smoke_original)
         self._debug(check)

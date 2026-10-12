@@ -14,6 +14,35 @@ INTERFACE = "io.github.willdeschepper.MotionWall.Desktop"
 PROJECT = Path(__file__).resolve().parent.parent
 
 
+def save_renderer_options(library, identifier, options):
+    """Freeze an Apply request before starting the renderer, including new fields.
+
+    Older loaded GNOME modules forward only fit/speed/loop. This local snapshot
+    preserves background/alpha without reading subsequently edited preferences.
+    """
+    if library.get(identifier) is None:
+        raise ValueError("A animação aplicada não existe no catálogo.")
+    with library.lock:
+        path = library.root / "desktop-options.json"
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"artwork": identifier, "options": options}), encoding="utf-8")
+        temporary.replace(path)
+
+
+def renderer_options(library, identifier, forwarded):
+    options = library.settings.copy()
+    path = library.root / "desktop-options.json"
+    try:
+        if path.stat().st_size <= 65536:
+            snapshot = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(snapshot, dict) and snapshot.get("artwork") == identifier and isinstance(snapshot.get("options"), dict):
+                options.update(snapshot["options"])
+    except (OSError, ValueError):
+        pass
+    options.update(forwarded)
+    return options
+
+
 def install_extension():
     source = PROJECT / "extension"
     if not (source / "extension.js").is_file():
@@ -45,6 +74,11 @@ class DesktopBridge:
 
     def apply(self, library, identifier, options, callback):
         from gi.repository import GLib
+        try:
+            save_renderer_options(library, identifier, options)
+        except (OSError, ValueError) as error:
+            callback(None, error)
+            return
         self.call("Apply", GLib.Variant("(ssss)", (str(PROJECT), str(library.root),
                                                   identifier, json.dumps(options))), callback)
 

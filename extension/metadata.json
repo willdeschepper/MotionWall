@@ -4,5 +4,5 @@
   "description": "Bridge for the MotionWall animated wallpaper renderer.",
   "shell-version": ["46", "47", "48", "49", "50"],
   "url": "https://github.com/willdeschepper/MotionWall",
-  "version": 4
+  "version": 5
 }

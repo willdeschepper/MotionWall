@@ -277,7 +277,7 @@ class Library:
         self.lock = threading.RLock()
         self.entries: list[Artwork] = []
         self.settings = {"fit": "contain", "speed": 1.0, "loop": True, "selected": None,
-                         "fps": 30, "transparent": True, "quality": "balanced"}
+                         "fps": 30, "transparent": True, "quality": "balanced", "background": "#111827"}
         if self.index.exists():
             data = _read_json(self.index)
             if not isinstance(data, dict) or data.get("version") != 1:
@@ -298,6 +298,9 @@ class Library:
                 if settings.get("fps") in {15, 30, 60}:
                     self.settings["fps"] = settings["fps"]
                 self.settings["transparent"] = settings.get("transparent", True) is not False
+                color = settings.get("background")
+                if isinstance(color, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+                    self.settings["background"] = color.lower()
                 if settings.get("quality") in {"balanced", "native"}:
                     self.settings["quality"] = settings["quality"]
                 self.settings["selected"] = settings.get("selected")
