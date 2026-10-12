@@ -79,7 +79,8 @@ export default class MotionWallDesktop extends Extension {
     }
 
     Apply(root, data, id, optionsJSON) {
-        if (!Meta.is_wayland_compositor())
+        // GNOME 50 is Wayland-only and removed is_wayland_compositor().
+        if (typeof Meta.is_wayland_compositor === 'function' && !Meta.is_wayland_compositor())
             throw new Error('A integração do MotionWall requer GNOME Wayland.');
         if (!GLib.path_is_absolute(root) || !GLib.path_is_absolute(data) || !/^[0-9a-f]{32}$/.test(id))
             throw new Error('Pedido de wallpaper inválido.');
