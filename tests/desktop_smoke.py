@@ -61,6 +61,7 @@ def main():
             return json.loads(result)
 
         help_text = subprocess.run(["gnome-shell", "--help"], capture_output=True, text=True, check=True).stdout
+        print(subprocess.run(["gnome-shell", "--version"], capture_output=True, text=True, check=True).stdout.strip(), flush=True)
         mode = ["--nested", "--wayland"] if "--nested" in help_text else ["--headless", "--wayland", "--virtual-monitor=1280x720"]
         output = ROOT / "smoke-output"
         output.mkdir(exist_ok=True)

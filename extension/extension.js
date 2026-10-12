@@ -28,6 +28,16 @@ export default class MotionWallDesktop extends Extension {
         this._generation = 0;
         this._connect(global.window_manager, 'map', (_wm, actor) => this._consider(actor));
         this._connect(Main.layoutManager, 'monitors-changed', () => this._monitorChange());
+        this._connect(global.display, 'notify::focus-window', () => {
+            const focused = global.display.focus_window;
+            if (!this._process)
+                return;
+            if (!this._owns(focused)) {
+                if (focused) this._previousFocus = focused;
+            } else if (this._previousFocus?.get_compositor_private()) {
+                this._previousFocus.activate(global.get_current_time());
+            }
+        });
         this._connect(Main.sessionMode, 'updated', () => {
             if (Main.sessionMode.isLocked)
                 this.Stop();
@@ -96,6 +106,7 @@ export default class MotionWallDesktop extends Extension {
         this._error = '';
         this._progress = {};
         this._monitors = monitors;
+        this._previousFocus = global.display.focus_window;
         const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.STDOUT_PIPE});
         launcher.set_cwd(root);
         launcher.setenv('GDK_BACKEND', 'wayland', true);
@@ -199,6 +210,8 @@ export default class MotionWallDesktop extends Extension {
             if (layer.index === index) this._clone(layer);
         }
         actor.hide();
+        if (this._owns(global.display.focus_window) && this._previousFocus?.get_compositor_private())
+            this._previousFocus.activate(global.get_current_time());
     }
 
     _attach(background, manager) {
@@ -299,6 +312,7 @@ export default class MotionWallDesktop extends Extension {
         this._surfaces.clear();
         this._process?.force_exit();
         this._process = this._client = this._request = null;
+        this._previousFocus = null;
         this._progress = {};
         this._state = 'stopped';
         this._error = '';
