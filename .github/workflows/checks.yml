@@ -14,12 +14,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Catalogue and transport
         run: /usr/bin/python3 -m unittest discover -s tests -v
+      - name: Vector frame budget at high display refresh rates
+        run: node tests/vector_clock.mjs
       - name: Install native runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 xvfb dbus-x11 gnome-shell gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
+          sudo apt-get install -y python3-gi python3-pil gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 xvfb dbus-x11 gnome-shell gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
       - name: Allow WebKit sandbox namespaces in this disposable runner
         run: |
           # Ubuntu 24.04 restricts user namespaces for unprofiled binaries.
@@ -60,6 +64,15 @@ jobs:
           GSK_RENDERER: cairo
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'
         run: xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/desktop_smoke.py
+      - name: Aurora CPU comparison at ultrawide resolution
+        env:
+          GTK_A11Y: none
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: |
+          git show a842a549aea7ec900c64b90ee48162b1d77ca89f:motionwall/web/player.js > /tmp/motionwall-original-player.js
+          xvfb-run -a -s '-screen 0 3840x1080x24' dbus-run-session -- /usr/bin/python3 tests/playback_benchmark.py --baseline-player /tmp/motionwall-original-player.js
       - name: Desktop screenshot and logs
         if: always()
         uses: actions/upload-artifact@v4

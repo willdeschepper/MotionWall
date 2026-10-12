@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 540">
+  <!-- Transparent overlay: the user's static wallpaper remains underneath. -->
+  <g stroke="#c5e8ff" stroke-width="2" stroke-linecap="round" opacity=".45">
+    <path d="M120 -40l-12 30 M410 -130l-12 30 M690 -65l-12 30 M970 -170l-12 30 M1250 -80l-12 30 M1570 -160l-12 30 M1820 -50l-12 30">
+      <animateTransform attributeName="transform" type="translate" values="0 0;-100 740" dur="1.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M230 -220l-10 25 M560 -100l-10 25 M810 -240l-10 25 M1090 -35l-10 25 M1420 -190l-10 25 M1700 -100l-10 25">
+      <animateTransform attributeName="transform" type="translate" values="0 0;-100 800" dur="1.6s" repeatCount="indefinite"/>
+    </path>
+  </g>
+</svg>

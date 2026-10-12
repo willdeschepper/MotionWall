@@ -276,7 +276,8 @@ class Library:
         self.index = self.root / "library.json"
         self.lock = threading.RLock()
         self.entries: list[Artwork] = []
-        self.settings = {"fit": "contain", "speed": 1.0, "loop": True, "selected": None}
+        self.settings = {"fit": "contain", "speed": 1.0, "loop": True, "selected": None,
+                         "fps": 30, "transparent": True}
         if self.index.exists():
             data = _read_json(self.index)
             if not isinstance(data, dict) or data.get("version") != 1:
@@ -294,6 +295,9 @@ class Library:
                 if isinstance(speed, (float, int)) and 0.25 <= speed <= 3:
                     self.settings["speed"] = speed
                 self.settings["loop"] = settings.get("loop", True) is not False
+                if settings.get("fps") in {15, 30, 60}:
+                    self.settings["fps"] = settings["fps"]
+                self.settings["transparent"] = settings.get("transparent", True) is not False
                 self.settings["selected"] = settings.get("selected")
             except (TypeError, KeyError, ValueError) as error:
                 raise ImportFailure("Catálogo corrompido. Preserve library.json antes de restaurar um backup.") from error

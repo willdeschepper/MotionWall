@@ -1,7 +1,7 @@
 # MotionWall
 
 Aplicativo de wallpapers animados para Ubuntu/GNOME, feito com Python,
-GTK4/Libadwaita e WebKitGTK. Versão **0.2.2**, com integração GNOME experimental.
+GTK4/Libadwaita e WebKitGTK. Versão **0.2.3**, com integração GNOME experimental.
 
 Importe uma animação, veja a prévia e clique em **Aplicar como fundo**. No
 GNOME Wayland, isso requer a extensão MotionWall Desktop. A animação roda em
@@ -29,7 +29,7 @@ O aplicativo usa o Python do sistema; não precisa de pip ou ambiente virtual.
 
 Use **Importar** ou arraste arquivos sobre a janela. Para começar sem baixar
 animações, abra o menu e escolha **Importar exemplos**. Há um SVG ultrawide,
-um GIF e uma animação Lottie incluídos.
+um GIF, uma animação Lottie, a Aurora em MP4 e uma chuva com alpha incluídos.
 
 ## Ativar o fundo animado no GNOME Wayland
 
@@ -96,6 +96,47 @@ depende do ambiente. O fundo é aplicado a todos os monitores e não altera os c
 do wallpaper estático. Ao bloquear a sessão ou desabilitar a extensão, o player
 é encerrado; reaplique após desbloquear. Não há inicialização automática no login.
 
+## Consumo de CPU e fluidez
+
+SVG e Lottie usam um limite de **30 fps** por padrão, independente de telas de
+120/144 Hz. Em **Fluidez**, escolha 15, 30 ou 60 fps. A duração e a velocidade
+continuam iguais; o limite reduz a frequência de pintura. O controle vale para
+SVG (CSS e SMIL) e Lottie; GIF e vídeo seguem os quadros do arquivo.
+
+A Aurora SVG usa um desfoque animado. Em tela inteira, esse filtro continua
+custoso mesmo com menos quadros. Para essa animação, use **aurora-video** em
+**Importar exemplos**: a mesma cena foi pré-renderizada em H.264, 1920×540,
+30 fps, sem áudio, com um loop de 18 segundos. Ela é ampliada normalmente no
+monitor 3840×1080. O script `tools/build_aurora_video.py` reproduz a geração.
+MP4 comum não contém alpha; esta alternativa é um fundo completo.
+
+Trocar SVG por Lottie não garante economia: o Lottie Web deste aplicativo também
+usa o renderer SVG. Vídeo evita recalcular curvas e desfoques, mas o custo da
+decodificação depende do codec, da resolução e da aceleração disponível.
+
+Feche a janela do catálogo depois de aplicar para não manter também a prévia
+animando. A comparação automática usa a mesma Aurora, o mesmo WebKitGTK e uma
+área 3840×1080, com renderização por software. O relatório inclui CPU de toda a
+árvore de processos e quadros observados. Os resultados de CI não são uma
+previsão do consumo no computador do usuário.
+
+## Animação transparente sobre o wallpaper
+
+Ative **Fundo transparente**, selecione uma animação que tenha alpha e clique
+em **Aplicar como fundo**. A camada animada revela o wallpaper estático nas
+áreas transparentes. O WebKit e a janela do renderer preservam alpha até a
+composição do GNOME. Desative a opção para usar o fundo sólido do player.
+
+O exemplo **chuva-alpha** é uma sobreposição de chuva sem fundo. Lottie, SVG
+e GIF podem preservar transparência quando o arquivo a possui. A opção não
+remove retângulos, imagens ou cores desenhados dentro da própria animação.
+A Aurora SVG e a Aurora MP4 incluem o céu e as montanhas, portanto são opacas.
+Transparência em codecs de vídeo depende do decoder; H.264/MP4 comum não a fornece.
+
+Esta atualização muda o aplicativo e o renderer, sem mudar a extensão GNOME:
+restaure o fundo, feche o catálogo, execute `git pull --ff-only`, abra `./dev.sh`
+e reaplique. Não precisa reinstalar a extensão nem sair da sessão para 0.2.3.
+
 ## Recursos desta versão
 
 - Catálogo local com busca, cópia dos arquivos importados e remoção sem alterar os originais.
@@ -118,7 +159,7 @@ Importar um arquivo não garante que todos os efeitos dele sejam compatíveis co
 o renderer. Erros de reprodução aparecem na janela. O catálogo e o servidor
 local possuem testes automatizados. Aplicação, avanço da animação e restauração
 passaram no teste isolado de GNOME Wayland para GIF, SVG e Lottie. Codecs de vídeo
-e múltiplos monitores físicos ainda não foram validados.
+em hardware e múltiplos monitores físicos ainda não foram validados.
 
 ## Dados e desenvolvimento
 
@@ -138,7 +179,7 @@ Para experimentar sem alterar seu catálogo:
 
 `--smoke-test` cria um catálogo temporário, abre GTK/WebKit e verifica avanço e
 pausa de GIF, SVG, Lottie e `.lottie`. Requer uma sessão gráfica; em CI usa Xvfb.
-O teste não cobre codecs de vídeo. O teste de integração com wallpaper é separado:
+O teste cobre VP8/WebM e H.264/MP4 com os plugins do CI. O teste de integração com wallpaper é separado:
 
 ```sh
 sudo apt install xvfb dbus-x11 gnome-shell
@@ -146,10 +187,10 @@ xvfb-run -a dbus-run-session -- /usr/bin/python3 tests/desktop_smoke.py
 ```
 
 Ele instala a extensão em uma pasta temporária, abre outra sessão GNOME com
-suas próprias configurações e barramento, aplica GIF/SVG/Lottie, verifica avanço
+suas próprias configurações e barramento, aplica GIF/SVG/Lottie/MP4, verifica avanço
 da animação e restauração e desabilita a extensão. Também cria uma janela comum,
 troca espaços por teclado, abre o Overview, verifica as miniaturas e move a janela
-para outro espaço. Não altera sua sessão principal.
+para outro espaço. Também compara os pixels do desktop antes, durante e depois da chuva, com alpha ativado e desativado. Não altera sua sessão principal.
 O CI salva screenshot e logs nos artefatos `motionwall-desktop-test-ubuntu-24.04`
 e `motionwall-desktop-test-ubuntu-26.04`.
 
@@ -174,3 +215,14 @@ independentes por monitor, inicialização no login e empacotamento.
 
 MotionWall: MIT. Lottie Web e omggif: MIT, com avisos preservados em
 `motionwall/web/vendor`. Os exemplos incluídos pertencem ao projeto.
+
+Para repetir a comparação de CPU em uma sessão de teste (não aplica fundo no desktop):
+
+```sh
+git show a842a549aea7ec900c64b90ee48162b1d77ca89f:motionwall/web/player.js > /tmp/motionwall-original-player.js
+xvfb-run -a -s '-screen 0 3840x1080x24' dbus-run-session -- /usr/bin/python3 tests/playback_benchmark.py --baseline-player /tmp/motionwall-original-player.js
+```
+
+O CI executa esse teste sem aceleração de GPU para tornar a comparação explícita;
+em uma máquina física, o resultado pode ser diferente. `smoke-output/playback-benchmark.json`
+registra as medições. 100% de CPU corresponde a um processador lógico ocupado.

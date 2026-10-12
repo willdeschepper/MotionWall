@@ -119,7 +119,7 @@ def main():
                              "k.notify_keyval(t + 2, Clutter.KEY_Page_Down, Clutter.KeyState.RELEASED); "
                              "k.notify_keyval(t + 3, Clutter.KEY_Super_L, Clutter.KeyState.RELEASED); return true; })()")
                 library = Library(temporary / "catalogue")
-                for filename in ("aurora.svg", "orbit.json", "pulse.gif"):
+                for filename in ("aurora.svg", "orbit.json", "pulse.gif", "aurora-video.mp4"):
                     artwork, _ = library.import_file(ROOT / "motionwall/examples" / filename)
                     status = asynchronous(lambda done: bridge.apply(library, artwork.id,
                         {"fit": "native", "speed": 1, "loop": True}, done))
@@ -182,6 +182,33 @@ def main():
                     wait_for(lambda: evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).length") == 0,
                              "renderer removed")
                     print(f"DESKTOP PASS: {filename} animates behind windows and restores original", flush=True)
+                # Verify actual compositor pixels, not just a transparent CSS property.
+                from PIL import Image
+                evaluate("(() => { const s = new Gio.Settings({schema_id: 'org.gnome.desktop.background'}); "
+                         "s.set_string('picture-uri', ''); s.set_string('picture-uri-dark', ''); "
+                         "s.set_string('primary-color', '#25406b'); s.set_string('color-shading-type', 'solid'); return true; })()")
+                time.sleep(.8)
+                def pixels(name):
+                    path = output / name
+                    call("org.gnome.Shell.Screenshot", "Screenshot", GLib.Variant("(bbs)",
+                         (False, False, str(path))), "/org/gnome/Shell/Screenshot")
+                    image = Image.open(path).convert("RGB")
+                    return image.getpixel((image.width - 20, image.height - 30))
+                background = pixels("alpha-baseline.png")
+                assert max(abs(a - b) for a, b in zip(background, (37, 64, 107))) < 3, background
+                rain, _ = library.import_file(ROOT / "motionwall/examples/chuva-alpha.svg")
+                for transparent in (True, False):
+                    asynchronous(lambda done: bridge.apply(library, rain.id,
+                        {"fit": "native", "speed": 1, "loop": True, "transparent": transparent}, done))
+                    wait_for(active, "rain wallpaper")
+                    color = pixels(f"alpha-{transparent}.png")
+                    expected = background if transparent else (17, 24, 39)
+                    assert max(abs(a - b) for a, b in zip(color, expected)) < 3, (transparent, color, expected)
+                    asynchronous(bridge.stop)
+                    wait_for(lambda: evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).length") == 0,
+                             "alpha renderer removed")
+                assert pixels("alpha-restored.png") == background, "Alpha overlay did not restore wallpaper"
+                print("ALPHA DESKTOP PASS: transparent rain reveals static wallpaper; opaque option and restore work", flush=True)
                 # Disable cleans exported interface and all hooks after use.
                 call("org.gnome.Shell.Extensions", "DisableExtension", GLib.Variant("(s)", (UUID,)), "/org/gnome/Shell")
                 print("DESKTOP PASS: extension disabled cleanly", flush=True)

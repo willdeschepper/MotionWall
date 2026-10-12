@@ -83,6 +83,9 @@ class MotionWallWindow(Adw.ApplicationWindow):
         manager.connect("script-message-received::motionwall", self._message)
         manager.register_script_message_handler("motionwall", None)
         self.view = WebKit.WebView(user_content_manager=manager, hexpand=True, vexpand=True)
+        color = Gdk.RGBA()
+        color.parse("rgba(0,0,0,0)")
+        self.view.set_background_color(color)
         settings = self.view.get_settings()
         settings.set_media_playback_requires_user_gesture(False)
         settings.set_enable_developer_extras(bool(os.environ.get("MOTIONWALL_DEBUG")))
@@ -142,6 +145,19 @@ class MotionWallWindow(Adw.ApplicationWindow):
         self.loop.connect("notify::active", self._options_changed)
         options.append(self.loop)
         content.append(options)
+        rendering = Gtk.Box(spacing=12)
+        rendering.append(Gtk.Label(label="Fluidez"))
+        self.fps = Gtk.DropDown.new_from_strings(["15 fps · econômico", "30 fps · equilibrado", "60 fps · fluido"])
+        self.fps.set_selected([15, 30, 60].index(self.library.settings["fps"]))
+        self.fps.set_tooltip_text("Limite de quadros para SVG e Lottie. Mais quadros aumentam o consumo; a velocidade da animação é preservada.")
+        self.fps.connect("notify::selected", self._options_changed)
+        rendering.append(self.fps)
+        rendering.append(Gtk.Label(label="Fundo transparente", hexpand=True, halign=Gtk.Align.END))
+        self.transparent = Gtk.Switch(active=self.library.settings["transparent"], valign=Gtk.Align.CENTER)
+        self.transparent.set_tooltip_text("Preserva o wallpaper estático nas áreas transparentes do arquivo. Não remove fundos desenhados dentro da animação.")
+        self.transparent.connect("notify::active", self._options_changed)
+        rendering.append(self.transparent)
+        content.append(rendering)
         desktop_bar = Gtk.Box(spacing=12)
         self.desktop_label = Gtk.Label(label="Verificando integração com o GNOME…", xalign=0,
                                        hexpand=True, wrap=True)
@@ -217,6 +233,7 @@ class MotionWallWindow(Adw.ApplicationWindow):
         elif event == "loaded":
             self._enable_playback(True)
             self.loop.set_sensitive(message.get("capabilities", {}).get("loop", True))
+            self.fps.set_sensitive(message.get("capabilities", {}).get("fps", False))
             self.loop.set_tooltip_text("O SVG usa o loop definido no próprio arquivo." if message.get("kind") == "svg" else "Repetir continuamente")
             if self.app.smoke:
                 GLib.timeout_add(650, self.app.smoke_check)
@@ -286,7 +303,8 @@ class MotionWallWindow(Adw.ApplicationWindow):
 
     def options(self):
         return {"fit": ["contain", "cover", "stretch", "native"][self.fit.get_selected()],
-                "speed": self.speed.get_value(), "loop": self.loop.get_active()}
+                "speed": self.speed.get_value(), "loop": self.loop.get_active(),
+                "fps": [15, 30, 60][self.fps.get_selected()], "transparent": self.transparent.get_active()}
 
     def _options_changed(self, *_args):
         if self._building:

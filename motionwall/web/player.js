@@ -12,7 +12,7 @@
   let ended = false;
   let loaded = false;
   let kind = null;
-  const settings = { fit: "contain", speed: 1, loop: true };
+  const settings = { fit: "contain", speed: 1, loop: true, fps: 30, transparent: true };
   let surface = null;
   const desktop = new URLSearchParams(location.search).get("desktop") === "1";
 
@@ -73,6 +73,32 @@
     const response = await fetch(url, { signal });
     if (!response.ok) throw new Error("O arquivo importado não está disponível. Importe-o novamente.");
     return type === "json" ? response.json() : type === "text" ? response.text() : response.arrayBuffer();
+  }
+
+  // Sample vector timelines at a bounded rate, independent of monitor refresh.
+  // Time follows the clock, so fewer paints do not slow down the animation.
+  function vectorClock(draw) {
+    let raf = null, last = null, next = null, elapsed = 0, active = false;
+    function tick(now) {
+      raf = null;
+      if (!active) return;
+      if (last !== null) elapsed += Math.min(now - last, 250) / 1000 * settings.speed;
+      last = now;
+      if (next === null || now + .5 >= next) {
+        const step = 1000 / settings.fps;
+        next = next === null ? now + step : next + step;
+        if (next <= now) next = now + step; // Never catch up by repainting a backlog.
+        const delta = elapsed;
+        elapsed = 0;
+        draw(delta);
+      }
+      if (active) raf = requestAnimationFrame(tick);
+    }
+    return {
+      play() { if (!active) { active = true; last = next = null; raf = requestAnimationFrame(tick); } },
+      pause() { active = false; if (raf !== null) cancelAnimationFrame(raf); raf = null; last = next = null; },
+      reset() { last = next = null; elapsed = 0; }
+    };
   }
 
   function gifEngine(buffer) {
@@ -174,24 +200,22 @@
     svg.pauseAnimations();
     svg.getBoundingClientRect(); // Resolve CSS animations before controlling them.
     const animations = svg.getAnimations({ subtree: true });
-    animations.forEach(a => { a.pause(); a.playbackRate = settings.speed; });
-    let time = 0, last = null, raf = null, rendered = 0;
-    function tick(now) {
-      raf = null;
-      if (last !== null) time += Math.min(now - last, 250) / 1000 * settings.speed;
-      last = now;
+    animations.forEach(a => a.pause());
+    let time = 0, rendered = 0;
+    const clock = vectorClock(delta => {
+      time += delta;
       svg.setCurrentTime(time);
+      animations.forEach(a => { a.currentTime = time * 1000; });
       rendered++;
-      raf = requestAnimationFrame(tick);
-    }
+    });
     return {
-      play() { animations.forEach(a => a.play()); if (raf === null) { last = null; raf = requestAnimationFrame(tick); } },
-      pause() { animations.forEach(a => a.pause()); if (raf !== null) cancelAnimationFrame(raf); raf = null; last = null; },
-      restart() { time = 0; last = null; svg.setCurrentTime(0); animations.forEach(a => { a.currentTime = 0; }); },
-      configure() { animations.forEach(a => a.updatePlaybackRate(settings.speed)); },
+      play: () => clock.play(),
+      pause: () => clock.pause(),
+      restart() { time = 0; clock.reset(); svg.setCurrentTime(0); animations.forEach(a => { a.currentTime = 0; }); },
+      configure() {},
       destroy() { this.pause(); animations.forEach(a => a.cancel()); },
       debug: () => ({ time, rendered, cssAnimations: animations.length }),
-      capabilities: { loop: false, speed: true }
+      capabilities: { loop: false, speed: true, fps: true }
     };
   }
 
@@ -205,10 +229,23 @@
     for (const font of data.fonts?.list || []) if (font.fPath) font.fPath = new URL(font.fPath, url).href;
     const container = makeSurface(data.w, data.h);
     const animation = lottie.loadAnimation({ container, renderer: "svg", loop: settings.loop, autoplay: false, animationData: data });
-    animation.setSpeed(settings.speed);
-    let rendered = 0;
-    animation.addEventListener("enterFrame", () => rendered++);
-    animation.addEventListener("complete", onEnded);
+    animation.setSubframe(false);
+    let rendered = 0, frame = 0;
+    const clock = vectorClock(delta => {
+      frame += delta * data.fr;
+      if (frame >= animation.totalFrames) {
+        if (settings.loop) frame %= animation.totalFrames;
+        else {
+          frame = Math.max(0, animation.totalFrames - 1);
+          animation.goToAndStop(frame, true);
+          rendered++;
+          onEnded();
+          return;
+        }
+      }
+      animation.goToAndStop(frame, true);
+      rendered++;
+    });
     const ready = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("Lottie demorou demais para carregar.")), 15000);
       const complete = () => { clearTimeout(timeout); resolve(); };
@@ -221,12 +258,12 @@
     });
     return {
       ready,
-      play: () => animation.play(), pause: () => animation.pause(),
-      restart: () => animation.goToAndStop(0, true),
-      configure() { animation.setSpeed(settings.speed); animation.loop = settings.loop; },
-      destroy: () => animation.destroy(),
+      play: () => clock.play(), pause: () => clock.pause(),
+      restart() { frame = 0; clock.reset(); animation.goToAndStop(0, true); },
+      configure() {},
+      destroy() { clock.pause(); animation.destroy(); },
       debug: () => ({ frame: animation.currentFrame, rendered }),
-      capabilities: { loop: true, speed: true }
+      capabilities: { loop: true, speed: true, fps: true }
     };
   }
 
@@ -267,6 +304,9 @@
     if (["contain", "cover", "stretch", "native"].includes(values.fit)) settings.fit = values.fit;
     if (Number.isFinite(values.speed) && values.speed >= 0.25 && values.speed <= 3) settings.speed = values.speed;
     if (typeof values.loop === "boolean") settings.loop = values.loop;
+    if ([15, 30, 60].includes(values.fps)) settings.fps = values.fps;
+    if (typeof values.transparent === "boolean") settings.transparent = values.transparent;
+    document.documentElement.dataset.transparent = String(settings.transparent);
     stage.dataset.fit = settings.fit;
     engine?.configure();
     layout();

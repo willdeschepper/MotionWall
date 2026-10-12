@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("WebKit", "6.0")
-from gi.repository import Gio, GLib, Gtk, WebKit  # noqa: E402
+from gi.repository import Gdk, Gio, GLib, Gtk, WebKit  # noqa: E402
 
 from .server import PreviewServer
 
@@ -36,6 +36,10 @@ class WallpaperRenderer(Gtk.Application):
     def do_startup(self):
         Gtk.Application.do_startup(self)
         self.server = PreviewServer(self.library)
+        self.css = Gtk.CssProvider()
+        self.css.load_from_data(b"window.motionwall-renderer { background: transparent; box-shadow: none; }")
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), self.css,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
     def do_activate(self):
         if self.views:
@@ -45,10 +49,14 @@ class WallpaperRenderer(Gtk.Application):
                                           decorated=False, default_width=monitor["width"],
                                           default_height=monitor["height"])
             window.set_focusable(False)
+            window.add_css_class("motionwall-renderer")
             manager = WebKit.UserContentManager()
             manager.register_script_message_handler("motionwall", None)
             manager.connect("script-message-received::motionwall", self.message, index)
             view = WebKit.WebView(user_content_manager=manager)
+            color = Gdk.RGBA()
+            color.parse("rgba(0,0,0,0)")
+            view.set_background_color(color)
             view.get_settings().set_media_playback_requires_user_gesture(False)
             view.connect("permission-request", lambda _view, request: (request.deny(), True)[1])
             view.connect("context-menu", lambda *_args: True)
