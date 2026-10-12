@@ -178,9 +178,9 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(self.library.index.read_text(), '{"broken": true}')
 
     def test_preferences_are_persisted(self):
-        self.library.set_settings(fit="cover", speed=1.5, loop=False)
+        self.library.set_settings(fit="native", speed=1.5, loop=False)
         restored = Library(self.library.root)
-        self.assertEqual(restored.settings["fit"], "cover")
+        self.assertEqual(restored.settings["fit"], "native")
         self.assertEqual(restored.settings["speed"], 1.5)
         self.assertFalse(restored.settings["loop"])
 

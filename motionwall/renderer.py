@@ -93,7 +93,7 @@ class WallpaperRenderer(Gtk.Application):
                     value = json.loads(view.evaluate_javascript_finish(result).to_string())
                     self.emit_status(event="frame", monitor=index,
                                      progress=value.get("rendered", value.get("time", 0)),
-                                     playing=value.get("playing", False))
+                                     playing=value.get("playing", False), geometry=value.get("geometry"))
                 except (GLib.Error, ValueError, TypeError):
                     pass
             self.views[index].evaluate_javascript("JSON.stringify(MotionWall.debug())", -1,

@@ -288,7 +288,7 @@ class Library:
                         raise ValueError("Invalid catalogue entry")
                     _relative_name(entry.filename)
                 settings = data.get("settings", {})
-                if settings.get("fit") in {"contain", "cover", "stretch"}:
+                if settings.get("fit") in {"contain", "cover", "stretch", "native"}:
                     self.settings["fit"] = settings["fit"]
                 speed = settings.get("speed", 1)
                 if isinstance(speed, (float, int)) and 0.25 <= speed <= 3:

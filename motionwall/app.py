@@ -125,8 +125,9 @@ class MotionWallWindow(Adw.ApplicationWindow):
 
         options = Gtk.Box(spacing=12)
         options.append(Gtk.Label(label="Enquadramento"))
-        self.fit = Gtk.DropDown.new_from_strings(["Ajustar", "Preencher", "Esticar"])
-        self.fit.set_selected(["contain", "cover", "stretch"].index(self.library.settings["fit"]))
+        self.fit = Gtk.DropDown.new_from_strings(["Ajustar", "Preencher", "Esticar", "Tamanho original · 100%"])
+        self.fit.set_tooltip_text("100% mantém as dimensões do arquivo, centralizado; arquivos maiores ficam recortados pela área da prévia.")
+        self.fit.set_selected(["contain", "cover", "stretch", "native"].index(self.library.settings["fit"]))
         self.fit.connect("notify::selected", self._options_changed)
         options.append(self.fit)
         options.append(Gtk.Label(label="Velocidade"))
@@ -284,7 +285,7 @@ class MotionWallWindow(Adw.ApplicationWindow):
         self.listbox.select_row(selected or first)
 
     def options(self):
-        return {"fit": ["contain", "cover", "stretch"][self.fit.get_selected()],
+        return {"fit": ["contain", "cover", "stretch", "native"][self.fit.get_selected()],
                 "speed": self.speed.get_value(), "loop": self.loop.get_active()}
 
     def _options_changed(self, *_args):
@@ -562,6 +563,39 @@ class MotionWallApplication(Adw.Application):
                 self.smoke_fail(f"Pause did not hold: {data}")
                 return
             print(f"SMOKE PASS: {data['kind']} advanced and paused", flush=True)
+            self.window.fit.set_selected(3)
+            GLib.timeout_add(150, self._smoke_original)
+        self._debug(check)
+        return GLib.SOURCE_REMOVE
+
+    def _original_geometry(self, data):
+        size = data.get("geometry")
+        if data.get("fit") != "native" or not size:
+            return False
+        if os.environ.get("GDK_SCALE") == "2" and size["pixelRatio"] < 1.9:
+            return False
+        return (abs(size["width"] * size["pixelRatio"] - size["nativeWidth"]) < .1
+                and abs(size["height"] * size["pixelRatio"] - size["nativeHeight"]) < .1
+                and abs(size["centerX"] - size["viewportCenterX"]) < .1
+                and abs(size["centerY"] - size["viewportCenterY"]) < .1)
+
+    def _smoke_original(self):
+        def check(data):
+            if not self._original_geometry(data):
+                self.smoke_fail(f"Original dimensions or centering failed: {data}")
+                return
+            self.window.set_default_size(1280, 900)
+            GLib.timeout_add(200, self._smoke_original_resized)
+        self._debug(check)
+        return GLib.SOURCE_REMOVE
+
+    def _smoke_original_resized(self):
+        def check(data):
+            if not self._original_geometry(data):
+                self.smoke_fail(f"Original size changed after viewport resize: {data}")
+                return
+            print(f"ORIGINAL PASS: {data['kind']} preserves size and center after resizing", flush=True)
+            self.window.set_default_size(1120, 760)
             self.smoke_index += 1
             row = self.window.listbox.get_row_at_index(self.smoke_index)
             if row:

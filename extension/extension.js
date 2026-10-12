@@ -89,7 +89,7 @@ export default class MotionWallDesktop extends Extension {
         return JSON.stringify({state: this._state, error: this._error,
             artwork: this._request?.id ?? null, surfaces: this._surfaces.size,
             layers: [...this._layers.values()].filter(layer => layer.clone).length,
-            progress: this._progress ?? {}});
+            progress: this._progress ?? {}, geometry: this._geometry ?? {}});
     }
 
     Apply(root, data, id, optionsJSON) {
@@ -101,7 +101,7 @@ export default class MotionWallDesktop extends Extension {
         if (!Gio.File.new_for_path(GLib.build_filenamev([root, 'motionwall', 'renderer.py'])).query_exists(null))
             throw new Error('A pasta do MotionWall não contém o renderer.');
         const values = JSON.parse(optionsJSON);
-        const options = {fit: ['contain', 'cover', 'stretch'].includes(values.fit) ? values.fit : 'cover',
+        const options = {fit: ['contain', 'cover', 'stretch', 'native'].includes(values.fit) ? values.fit : 'cover',
             speed: Number.isFinite(values.speed) && values.speed >= 0.25 && values.speed <= 3 ? values.speed : 1,
             loop: values.loop !== false};
         this.Stop();
@@ -120,6 +120,7 @@ export default class MotionWallDesktop extends Extension {
         this._state = 'starting';
         this._error = '';
         this._progress = {};
+        this._geometry = {};
         this._monitors = monitors;
         this._previousFocus = global.display.focus_window;
         const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.STDOUT_PIPE});
@@ -177,6 +178,7 @@ export default class MotionWallDesktop extends Extension {
                     if (message.event === 'frame') {
                         const previous = this._progress[message.monitor];
                         this._progress[message.monitor] = message.progress;
+                        if (message.geometry) this._geometry[message.monitor] = message.geometry;
                         if (this._surfaces.size === this._monitors.length &&
                             previous !== undefined && message.progress !== previous)
                             this._state = 'active';
@@ -331,6 +333,7 @@ export default class MotionWallDesktop extends Extension {
         this._process = this._client = this._request = null;
         this._previousFocus = null;
         this._progress = {};
+        this._geometry = {};
         this._state = 'stopped';
         this._error = '';
         return this.Status();

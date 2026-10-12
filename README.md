@@ -1,7 +1,7 @@
 # MotionWall
 
 Aplicativo de wallpapers animados para Ubuntu/GNOME, feito com Python,
-GTK4/Libadwaita e WebKitGTK. Versão **0.2.1**, com integração GNOME experimental.
+GTK4/Libadwaita e WebKitGTK. Versão **0.2.2**, com integração GNOME experimental.
 
 Importe uma animação, veja a prévia e clique em **Aplicar como fundo**. No
 GNOME Wayland, isso requer a extensão MotionWall Desktop. A animação roda em
@@ -66,6 +66,27 @@ Saia e entre novamente na sessão, ative a extensão e abra o aplicativo com os
 comandos acima. A versão 0.2.1 corrige o filtro das miniaturas de workspace e
 restringe a recuperação de foco ao espaço de trabalho atual. A animação fica
 no desktop; as miniaturas do Overview usam o fundo estático do GNOME.
+
+## Enquadramento e tamanho original
+
+Em **Enquadramento**, escolha um dos quatro modos:
+
+| Opção | Comportamento |
+| --- | --- |
+| Ajustar | Amplia ou reduz para caber na área, preservando a proporção. |
+| Preencher | Amplia ou reduz para ocupar toda a área; as bordas podem ficar recortadas. |
+| Esticar | Ocupa toda a área alterando a proporção. |
+| Tamanho original · 100% | Centraliza sem redimensionar: um pixel do arquivo por pixel físico da tela. |
+
+No modo 100%, um arquivo 800×450 ocupa 800×450 pixels, inclusive em telas HiDPI.
+Se o arquivo for menor que a tela, há espaço ao redor; se for maior, as bordas
+ficam recortadas. Para SVG, o tamanho vem das dimensões declaradas do arquivo,
+ou do viewBox quando não há dimensões absolutas. Para Lottie, usa o tamanho da
+composição. GIF e vídeo usam a resolução do arquivo.
+
+A opção funciona na prévia e no wallpaper. Após mudar o enquadramento, clique
+em **Aplicar como fundo** para atualizar a animação aplicada. A escolha é salva
+entre execuções.
 
 A extensão declara GNOME 46–50 e trata a mudança de API do Mutter 50.
 A validação automática passou em sessões isoladas de GNOME 46/Wayland no

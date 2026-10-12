@@ -19,7 +19,7 @@ jobs:
       - name: Install native runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 xvfb dbus-x11 gnome-shell
+          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 xvfb dbus-x11 gnome-shell gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
       - name: Allow WebKit sandbox namespaces in this disposable runner
         run: |
           # Ubuntu 24.04 restricts user namespaces for unprofiled binaries.
@@ -41,6 +41,14 @@ jobs:
       - name: GTK and WebKit playback
         env:
           GTK_A11Y: none
+          LIBGL_ALWAYS_SOFTWARE: '1'
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+        run: xvfb-run -a dbus-run-session -- ./dev.sh --smoke-test
+      - name: Original dimensions on HiDPI
+        env:
+          GTK_A11Y: none
+          GDK_SCALE: '2'
           LIBGL_ALWAYS_SOFTWARE: '1'
           GSK_RENDERER: cairo
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'

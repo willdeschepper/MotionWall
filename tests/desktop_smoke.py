@@ -122,7 +122,7 @@ def main():
                 for filename in ("aurora.svg", "orbit.json", "pulse.gif"):
                     artwork, _ = library.import_file(ROOT / "motionwall/examples" / filename)
                     status = asynchronous(lambda done: bridge.apply(library, artwork.id,
-                        {"fit": "cover", "speed": 1, "loop": True}, done))
+                        {"fit": "native", "speed": 1, "loop": True}, done))
                     assert status["state"] == "starting", status
                     def active():
                         state = desktop("Status")
@@ -133,6 +133,14 @@ def main():
                     assert status["surfaces"] >= 1 and status["layers"] >= 1, status
                     before = status["progress"]
                     wait_for(lambda: desktop("Status")["progress"] != before, "animation advances in background")
+                    sizes = desktop("Status")["geometry"]
+                    assert len(sizes) == status["surfaces"], "Missing wallpaper geometry"
+                    for size in sizes.values():
+                        assert abs(size["width"] * size["pixelRatio"] - size["nativeWidth"]) < .1, size
+                        assert abs(size["height"] * size["pixelRatio"] - size["nativeHeight"]) < .1, size
+                        assert abs(size["centerX"] - size["viewportCenterX"]) < .1, size
+                        assert abs(size["centerY"] - size["viewportCenterY"]) < .1, size
+                    print(f"ORIGINAL DESKTOP PASS: {filename} preserves original size and center", flush=True)
                     # Original renderer is hidden; the background holds a visible clone.
                     hidden = evaluate("global.get_window_actors().filter(a => a.meta_window.get_title()?.startsWith('MotionWallRenderer:')).every(a => !a.visible)")
                     assert hidden, "Renderer was visible as an ordinary window"

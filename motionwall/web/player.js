@@ -52,7 +52,9 @@
     const { node, width, height } = surface;
     const sx = stage.clientWidth / width;
     const sy = stage.clientHeight / height;
-    const scale = settings.fit === "cover" ? Math.max(sx, sy) : Math.min(sx, sy);
+    // At 100%, one file pixel occupies one physical screen pixel, also on HiDPI.
+    const scale = settings.fit === "native" ? 1 / (window.devicePixelRatio || 1)
+      : settings.fit === "cover" ? Math.max(sx, sy) : Math.min(sx, sy);
     node.style.width = `${width}px`;
     node.style.height = `${height}px`;
     node.style.transform = settings.fit === "stretch" ? `scale(${sx},${sy})` : `scale(${scale})`;
@@ -158,8 +160,13 @@
       for (const attr of [...node.attributes]) if (attr.localName.startsWith("on")) node.removeAttributeNode(attr);
     }
     const box = svg.viewBox.baseVal;
-    const width = box.width || parseFloat(svg.getAttribute("width")) || 800;
-    const height = box.height || parseFloat(svg.getAttribute("height")) || 450;
+    // Absolute SVG viewport dimensions take precedence over viewBox coordinates.
+    const declaredSize = name => {
+      const length = svg[name].baseVal;
+      return length.unitType !== 2 && length.value > 0 ? length.value : 0;
+    };
+    const width = declaredSize("width") || box.width || 800;
+    const height = declaredSize("height") || box.height || 450;
     const host = makeSurface(width, height);
     const shadow = host.attachShadow({ mode: "open" });
     svg.setAttribute("width", width); svg.setAttribute("height", height);
@@ -225,15 +232,22 @@
 
   function videoEngine(url, signal) {
     const video = document.createElement("video");
+    video.classList.add("artwork");
     video.muted = true; video.playsInline = true; video.preload = "auto";
     video.loop = settings.loop; video.playbackRate = settings.speed;
     video.disableRemotePlayback = true;
     stage.replaceChildren(video);
+    const updateSize = () => {
+      if (signal.aborted || !video.videoWidth || !video.videoHeight) return;
+      surface = { node: video, width: video.videoWidth, height: video.videoHeight };
+      layout();
+    };
+    video.addEventListener("resize", updateSize);
     video.addEventListener("ended", onEnded);
     const ready = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("O vídeo demorou demais para carregar.")), 15000);
       const done = callback => { clearTimeout(timeout); callback(); };
-      video.addEventListener("loadeddata", () => done(resolve), { once: true });
+      video.addEventListener("loadeddata", () => done(() => { updateSize(); resolve(); }), { once: true });
       video.addEventListener("error", () => done(() => reject(new Error("Vídeo incompatível ou codec ausente. Verifique os plugins do GStreamer."))), { once: true });
       signal.addEventListener("abort", () => done(() => reject(new DOMException("Aborted", "AbortError"))), { once: true });
       video.src = url;
@@ -250,7 +264,7 @@
   }
 
   function configure(values = {}) {
-    if (["contain", "cover", "stretch"].includes(values.fit)) settings.fit = values.fit;
+    if (["contain", "cover", "stretch", "native"].includes(values.fit)) settings.fit = values.fit;
     if (Number.isFinite(values.speed) && values.speed >= 0.25 && values.speed <= 3) settings.speed = values.speed;
     if (typeof values.loop === "boolean") settings.loop = values.loop;
     stage.dataset.fit = settings.fit;
@@ -315,7 +329,15 @@
     play() { if (ended) { ended = false; engine?.restart(); } userPaused = false; syncPlayback(); },
     restart() { ended = false; engine?.restart(); syncPlayback(); },
     setSuspended(value) { nativeHidden = !!value; syncPlayback(); },
-    debug: () => ({ kind, loaded, playing: isPlaying(), ended, ...settings, ...engine?.debug() })
+    debug: () => {
+      const bounds = surface?.node.getBoundingClientRect();
+      const viewport = stage.getBoundingClientRect();
+      return { kind, loaded, playing: isPlaying(), ended, ...settings, ...engine?.debug(),
+        geometry: bounds ? { width: bounds.width, height: bounds.height,
+          centerX: bounds.x + bounds.width / 2, centerY: bounds.y + bounds.height / 2,
+          viewportCenterX: viewport.x + viewport.width / 2, viewportCenterY: viewport.y + viewport.height / 2,
+          nativeWidth: surface.width, nativeHeight: surface.height, pixelRatio: window.devicePixelRatio || 1 } : null };
+    }
   };
   new ResizeObserver(layout).observe(stage);
   document.addEventListener("visibilitychange", syncPlayback);

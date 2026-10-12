@@ -93,6 +93,9 @@ def main(argv=None):
                     archive.writestr("manifest.json", json.dumps({"version": "2", "animations": [{"id": "orbit"}]}))
                     archive.write(examples / "orbit.json", "a/orbit.json")
                 library.import_file(package)
+                video_fixture = Path(__file__).parent.parent / "tests/fixtures/native-size.webm"
+                if video_fixture.is_file():
+                    library.import_file(video_fixture)
             try:
                 from .app import MotionWallApplication
             except (ImportError, ValueError) as error:
