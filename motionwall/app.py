@@ -17,6 +17,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk, WebKit  # noqa: E402
 from . import __version__
 from .library import KINDS, Library
 from .server import PreviewServer
+from .desktop import DesktopBridge, install_extension, UUID
 
 EXAMPLES = Path(__file__).parent / "examples"
 FORMAT_LABELS = {"gif": "GIF", "svg": "SVG animado", "lottie": "Lottie JSON",
@@ -44,6 +45,10 @@ class MotionWallWindow(Adw.ApplicationWindow):
         self.import_button.add_css_class("suggested-action")
         self.import_button.connect("clicked", self._choose_files)
         header.pack_start(self.import_button)
+        self.apply_button = Gtk.Button(label="Aplicar como fundo", sensitive=False)
+        self.apply_button.add_css_class("suggested-action")
+        self.apply_button.connect("clicked", self._apply_desktop)
+        header.pack_end(self.apply_button)
         menu = Gio.Menu()
         menu.append("Importar exemplos", "app.examples")
         menu.append("Sobre o MotionWall", "app.about")
@@ -136,10 +141,16 @@ class MotionWallWindow(Adw.ApplicationWindow):
         self.loop.connect("notify::active", self._options_changed)
         options.append(self.loop)
         content.append(options)
-        footer = Gtk.Label(label="Prévia local. A integração com o papel de parede será adicionada na próxima etapa.", xalign=0, wrap=True)
-        footer.add_css_class("dim-label")
-        footer.add_css_class("caption")
-        content.append(footer)
+        desktop_bar = Gtk.Box(spacing=12)
+        self.desktop_label = Gtk.Label(label="Verificando integração com o GNOME…", xalign=0,
+                                       hexpand=True, wrap=True)
+        self.desktop_label.add_css_class("dim-label")
+        self.desktop_label.add_css_class("caption")
+        desktop_bar.append(self.desktop_label)
+        self.stop_desktop = Gtk.Button(label="Restaurar fundo", sensitive=False)
+        self.stop_desktop.connect("clicked", self._stop_desktop)
+        desktop_bar.append(self.stop_desktop)
+        content.append(desktop_bar)
 
         paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         paned.set_start_child(sidebar)
@@ -161,6 +172,8 @@ class MotionWallWindow(Adw.ApplicationWindow):
         self._building = False
         self.refresh()
         self.view.load_uri(self.app.server.url)
+        if not self.app.smoke:
+            self.app.poll_desktop()
 
     def command(self, method, value=None, callback=None):
         if not self.ready:
@@ -229,6 +242,7 @@ class MotionWallWindow(Adw.ApplicationWindow):
 
     def _select(self, _list, row):
         self.selected = row.artwork if row else None
+        self.apply_button.set_sensitive(self.selected is not None)
         self.remove_button.set_sensitive(self.selected is not None)
         self._enable_playback(False)
         if self.selected:
@@ -294,6 +308,53 @@ class MotionWallWindow(Adw.ApplicationWindow):
 
     def _toggle_play(self, _button):
         self.command("pause" if self.playing else "play")
+
+    def _apply_desktop(self, _button):
+        if not self.selected:
+            return
+        if not self.app.bridge or self.app.desktop_state.get("state") == "unavailable":
+            self._setup_desktop()
+            return
+        self.apply_button.set_sensitive(False)
+        self.app.bridge.apply(self.library, self.selected.id, self.options(), self._desktop_reply)
+
+    def _stop_desktop(self, _button):
+        if self.app.bridge:
+            self.app.bridge.stop(self._desktop_reply)
+
+    def _desktop_reply(self, status, error):
+        if self.app.closing:
+            return
+        self.apply_button.set_sensitive(self.selected is not None)
+        if error:
+            self.toast(f"Não foi possível alterar o fundo: {error}")
+            self.app.poll_desktop()
+        else:
+            self.app.desktop_update(status, None)
+
+    def _setup_desktop(self):
+        dialog = Adw.MessageDialog(transient_for=self, heading="Ativar fundo animado",
+                                  body="No GNOME Wayland, o fundo precisa da extensão MotionWall Desktop. "
+                                       "Instale a integração, saia e entre na sessão e ative a extensão. "
+                                       "Depois, use Aplicar como fundo.")
+        dialog.add_response("cancel", "Cancelar")
+        dialog.add_response("install", "Instalar integração")
+        dialog.set_response_appearance("install", Adw.ResponseAppearance.SUGGESTED)
+        def install(_dialog, response):
+            if response != "install":
+                return
+            try:
+                install_extension()
+            except OSError as error:
+                self.toast(str(error))
+                return
+            instructions = Adw.MessageDialog(transient_for=self, heading="Integração instalada",
+                body="Saia e entre na sessão do GNOME. Depois execute no terminal:\n\n"
+                     f"gnome-extensions enable {UUID}\n\nAbra o MotionWall e clique em Aplicar como fundo.")
+            instructions.add_response("close", "Fechar")
+            instructions.present()
+        dialog.connect("response", install)
+        dialog.present()
 
     def _choose_files(self, _button):
         dialog = Gtk.FileDialog(title="Importar animações")
@@ -362,6 +423,8 @@ class MotionWallWindow(Adw.ApplicationWindow):
             if response == "remove":
                 try:
                     self.command("clear")
+                    if self.app.desktop_state.get("artwork") == identifier and self.app.bridge:
+                        self.app.bridge.stop(self._desktop_reply)
                     self.library.remove(identifier)
                     self.refresh()
                 except OSError as error:
@@ -391,10 +454,19 @@ class MotionWallApplication(Adw.Application):
         self.smoke_exit = 0
         self.smoke_index = 0
         self.smoke_before = None
+        self.bridge = None
+        self.desktop_state = {"state": "unavailable"}
+        self.desktop_poll = 0
 
     def do_startup(self):
         Adw.Application.do_startup(self)
         self.server = PreviewServer(self.library)
+        if not self.smoke:
+            try:
+                self.bridge = DesktopBridge()
+                self.desktop_poll = GLib.timeout_add_seconds(2, self.poll_desktop)
+            except GLib.Error:
+                pass
         for name, callback in (("examples", self._examples), ("about", self._about)):
             action = Gio.SimpleAction.new(name, None)
             action.connect("activate", callback)
@@ -409,10 +481,35 @@ class MotionWallApplication(Adw.Application):
 
     def do_shutdown(self):
         self.closing = True
+        if self.desktop_poll:
+            GLib.source_remove(self.desktop_poll)
         self.executor.shutdown(wait=True, cancel_futures=True)
         if self.server:
             self.server.close()
         Adw.Application.do_shutdown(self)
+
+    def poll_desktop(self):
+        if self.bridge and not self.closing:
+            self.bridge.status(self.desktop_update)
+        elif self.window:
+            self.desktop_update(None, "Sem barramento da sessão")
+        return GLib.SOURCE_CONTINUE
+
+    def desktop_update(self, status, error):
+        if self.closing:
+            return
+        self.desktop_state = status if not error else {"state": "unavailable"}
+        if not self.window:
+            return
+        state = self.desktop_state.get("state")
+        self.window.desktop_label.set_label({
+            "unavailable": "Ative a integração GNOME para usar a animação no fundo.",
+            "starting": "Iniciando fundo animado…",
+            "active": "Fundo animado ativo · continua ao fechar esta janela",
+            "stopped": "Fundo original · selecione uma animação e aplique",
+            "error": self.desktop_state.get("error", "Falha ao aplicar o fundo")
+        }.get(state, "Verificando fundo…"))
+        self.window.stop_desktop.set_sensitive(state in {"starting", "active"})
 
     def _examples(self, *_args):
         self.window.import_files(sorted(EXAMPLES.glob("*")))

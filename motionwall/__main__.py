@@ -37,12 +37,30 @@ def main(argv=None):
     parser.add_argument("--list", action="store_true", help="Listar o catálogo em JSON")
     parser.add_argument("--serve", metavar="ID", help="Servir uma prévia local para desenvolvimento")
     parser.add_argument("--smoke-test", action="store_true", help="Verificar GTK e reprodução real em um catálogo temporário")
+    parser.add_argument("--install-extension", action="store_true", help="Instalar a ponte GNOME na conta atual")
+    parser.add_argument("--renderer", metavar="ID", help=argparse.SUPPRESS)
+    parser.add_argument("--renderer-options", default="{}", help=argparse.SUPPRESS)
+    parser.add_argument("--renderer-monitors", default="[]", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.doctor:
         return doctor()
+    if args.install_extension:
+        from .desktop import install_extension, UUID
+        try:
+            target = install_extension()
+        except OSError as error:
+            print(str(error), file=sys.stderr)
+            return 1
+        print(f"Extensão instalada em {target}.\nSaia e entre na sessão do GNOME; depois execute:\n"
+              f"gnome-extensions enable {UUID}\n\nAbra o MotionWall e clique em Aplicar como fundo.")
+        return 0
     with tempfile.TemporaryDirectory(prefix="motionwall-smoke-") if args.smoke_test else _NoTemporaryDirectory() as temporary:
         try:
             library = Library(Path(temporary) / "library" if temporary else args.data_dir)
+            if args.renderer:
+                from .renderer import run_renderer
+                return run_renderer(library, args.renderer, json.loads(args.renderer_options),
+                                    json.loads(args.renderer_monitors))
             if args.imports:
                 for source in args.imports:
                     artwork, new = library.import_file(source)
@@ -83,7 +101,7 @@ def main(argv=None):
             app = MotionWallApplication(library, smoke=args.smoke_test)
             result = app.run([sys.argv[0]])
             return app.smoke_exit if args.smoke_test else result
-        except (ImportFailure, OSError) as error:
+        except (ValueError, OSError) as error:
             print(str(error), file=sys.stderr)
             return 1
 

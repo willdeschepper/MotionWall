@@ -14,6 +14,7 @@
   let kind = null;
   const settings = { fit: "contain", speed: 1, loop: true };
   let surface = null;
+  const desktop = new URLSearchParams(location.search).get("desktop") === "1";
 
   function notify(type, extra = {}) {
     const message = { type, ...extra };
@@ -32,7 +33,7 @@
   }
 
   function isPlaying() {
-    return loaded && !userPaused && !ended && !nativeHidden && !document.hidden;
+    return loaded && !userPaused && !ended && !nativeHidden && (desktop || !document.hidden);
   }
 
   function syncPlayback() {
