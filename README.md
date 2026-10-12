@@ -13,13 +13,16 @@ No terminal (Bash ou Fish):
 ```sh
 sudo apt update
 sudo apt install git python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-webkit-6.0 gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav
-git clone https://github.com/willdeschepper/MotionWall.git
+git clone --branch feat/native-preview https://github.com/willdeschepper/MotionWall.git
 cd MotionWall
 ./dev.sh --doctor
 ./dev.sh
 ```
 
-Se já clonou o repositório, execute `git pull --ff-only` na pasta antes de abrir.
+O código está na branch `feat/native-preview`, em revisão no PR #1. Se já clonou
+o repositório, execute `git fetch origin`, `git switch feat/native-preview` e
+`git pull --ff-only` na pasta antes de abrir. Preserve alterações locais antes
+de trocar de branch.
 O aplicativo usa o Python do sistema; não precisa de pip ou ambiente virtual.
 
 Use **Importar** ou arraste arquivos sobre a janela. Para começar sem baixar
