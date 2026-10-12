@@ -1,0 +1,13 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #111827; }
+#stage { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+#stage > .artwork { flex: none; display: block; }
+#stage video { width: 100%; height: 100%; object-fit: contain; }
+#stage[data-fit="cover"] video { object-fit: cover; }
+#stage[data-fit="stretch"] video { object-fit: fill; }
+#placeholder { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 12px; color: #8c9aae; pointer-events: none; }
+#placeholder strong { font-size: 32px; color: #dae4f2; letter-spacing: -.04em; }
+#placeholder span { font-size: 14px; }
+#placeholder[hidden], #error[hidden] { display: none; }
+#error { position: absolute; inset: auto 24px 24px; padding: 16px; border-radius: 12px; background: #422532; color: #ffd9dd; font-size: 14px; white-space: pre-wrap; }
